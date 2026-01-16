@@ -1,12 +1,12 @@
 import os
 import gspread
 from docx import Document
-# Removed docx2pdf since we are switching to win32com
 from datetime import datetime
 from dotenv import load_dotenv
 from oauth2client.service_account import ServiceAccountCredentials
 import win32com.client
 import pythoncom
+from lxml import etree
 
 # ANSI colors
 G, R, Y, B, C, W = '\033[92m', '\033[91m', '\033[93m', '\033[94m', '\033[96m', '\033[0m'
@@ -33,27 +33,84 @@ class CertificateGenerator:
             return None
 
     def replace_placeholders(self, doc, data):
-        """Preserves formatting while replacing text"""
+        """Replace placeholders EVERYWHERE in the document using multiple methods"""
+        
+        print(f"{Y}🔍 Searching for placeholders...{W}")
+        
+        # Method 1: Regular paragraphs
+        count = 0
         for paragraph in doc.paragraphs:
             if self._contains_placeholder(paragraph.text, data):
                 self._replace_in_paragraph(paragraph, data)
+                count += 1
+        print(f"   Found {count} in paragraphs")
         
+        # Method 2: Tables
+        count = 0
         for table in doc.tables:
             for row in table.rows:
                 for cell in row.cells:
                     for paragraph in cell.paragraphs:
                         if self._contains_placeholder(paragraph.text, data):
                             self._replace_in_paragraph(paragraph, data)
+                            count += 1
+        print(f"   Found {count} in tables")
+        
+        # Method 3: Direct XML replacement (catches text boxes)
+        count = self._replace_in_xml(doc, data)
+        print(f"   Found {count} in XML elements (including text boxes)")
 
-        for shape in doc.element.iter():
-            if shape.tag.endswith('txBody'):
-                for p in shape.findall('.//a:p', namespaces=shape.nsmap):
-                    pass 
+    def _replace_in_xml(self, doc, data):
+        """Aggressively replace in ALL XML text nodes"""
+        count = 0
+        
+        # Get the document XML tree
+        tree = doc.element
+        
+        # Define namespaces
+        namespaces = {
+            'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main',
+            'a': 'http://schemas.openxmlformats.org/drawingml/2006/main',
+            'wp': 'http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing'
+        }
+        
+        # Find ALL text elements (w:t tags)
+        for t_elem in tree.iter('{http://schemas.openxmlformats.org/wordprocessingml/2006/main}t'):
+            if t_elem.text:
+                original = t_elem.text
+                new_text = original
+                
+                for key, value in data.items():
+                    placeholder = f"{{{key}}}"
+                    if placeholder in new_text:
+                        new_text = new_text.replace(placeholder, str(value))
+                        count += 1
+                
+                if new_text != original:
+                    t_elem.text = new_text
+        
+        # Also check DrawingML text (a:t tags) - sometimes used in text boxes
+        for t_elem in tree.iter('{http://schemas.openxmlformats.org/drawingml/2006/main}t'):
+            if t_elem.text:
+                original = t_elem.text
+                new_text = original
+                
+                for key, value in data.items():
+                    placeholder = f"{{{key}}}"
+                    if placeholder in new_text:
+                        new_text = new_text.replace(placeholder, str(value))
+                        count += 1
+                
+                if new_text != original:
+                    t_elem.text = new_text
+        
+        return count
 
     def _contains_placeholder(self, text, data):
         return any(f"{{{key}}}" in text for key in data.keys())
 
     def _replace_in_paragraph(self, paragraph, data):
+        """Replace text in paragraph while preserving formatting"""
         original_text = paragraph.text
         new_text = original_text
         
@@ -76,11 +133,14 @@ class CertificateGenerator:
                 'color': first_run.font.color.rgb if first_run.font.color else None
             }
             
+            # Remove all runs
             for _ in range(len(paragraph.runs)):
                 paragraph._element.remove(paragraph.runs[0]._element)
             
+            # Add new run with replaced text
             new_run = paragraph.add_run(new_text)
             
+            # Apply formatting
             new_run.font.name = font_props['name']
             new_run.font.size = font_props['size']
             new_run.font.bold = font_props['bold']
@@ -92,7 +152,7 @@ class CertificateGenerator:
     def generate_certificate_pdf(self, candidate, manual_data):
         full_name = (candidate.get("Full Name(as per Aadhar/PAN)") or "Candidate").strip()
         
-        # --- Updated Data Dictionary with ROLE ---
+        # Data dictionary with all placeholders
         data = {
             "FULL_NAME": full_name,
             "FROM": manual_data['start_date'],
@@ -101,25 +161,32 @@ class CertificateGenerator:
             "ROLE": manual_data['role']
         }
 
-        # 1. Save DOCX first
+        print(f"\n{C}📋 Data to replace:{W}")
+        for key, value in data.items():
+            print(f"   {{{key}}} → {value}")
+
+        # 1. Load template and replace placeholders
         doc = Document(self.template_docx)
         self.replace_placeholders(doc, data)
 
+        # 2. Create safe filename
         safe_name = "".join([c if c.isalnum() or c == '_' else "_" for c in full_name])
         
-        # Win32com requires ABSOLUTE paths to work reliably
+        # Win32com requires ABSOLUTE paths
         docx_path = os.path.abspath(os.path.join(self.output_dir, f"Cert_{safe_name}.docx"))
         pdf_path = os.path.abspath(os.path.join(self.output_dir, f"Cert_{safe_name}.pdf"))
 
+        # 3. Save DOCX
         doc.save(docx_path)
+        print(f"{G}✅ DOCX saved: {docx_path}{W}")
         
-        # 2. Convert to PDF using direct Word COM interface (Fixes Open.SaveAs error)
+        # 4. Convert to PDF using Word COM
         try:
             pythoncom.CoInitialize()
             word = win32com.client.Dispatch("Word.Application")
             word.Visible = False
             
-            # Open the new DOCX
+            # Open the DOCX
             wb = word.Documents.Open(docx_path)
             
             # Save as PDF (FileFormat=17)
@@ -127,16 +194,19 @@ class CertificateGenerator:
             wb.Close()
             word.Quit()
             
-            # Cleanup
+            # Cleanup - remove DOCX, keep PDF
             if os.path.exists(pdf_path):
+                print(f"{G}✅ PDF created: {pdf_path}{W}")
                 os.remove(docx_path) 
                 return pdf_path
             return docx_path
             
         except Exception as e:
             print(f"{R}❌ PDF Error: {e}{W}")
-            try: word.Quit() 
-            except: pass
+            try: 
+                word.Quit() 
+            except: 
+                pass
             return docx_path
 
     def run_process(self):
@@ -150,7 +220,9 @@ class CertificateGenerator:
         for idx, candidate in enumerate(candidates, 1):
             name = (candidate.get("Full Name(as per Aadhar/PAN)") or "Unknown")
             
-            print(f"\n{B}[{idx}/{len(candidates)}] {name}{W}")
+            print(f"\n{B}{'='*60}{W}")
+            print(f"{B}[{idx}/{len(candidates)}] {name}{W}")
+            print(f"{B}{'='*60}{W}")
             
             choice = input(f"Generate Certificate? (y/n/exit): ").strip().lower()
             
@@ -162,7 +234,7 @@ class CertificateGenerator:
             today = datetime.now().strftime("%d-%m-%Y")
             sheet_start = candidate.get("Expected Start Date") or candidate.get("Start Date") or ""
             
-            # --- Updated Inputs with ROLE ---
+            # Get manual inputs
             m_start = input(f"🗓️  Start Date [{sheet_start}]: ").strip() or str(sheet_start)
             m_end = input(f"🏁 End Date [{today}]: ").strip() or today
             m_issue = input(f"📅 Issue Date [{today}]: ").strip() or today
@@ -176,17 +248,24 @@ class CertificateGenerator:
             }
 
             try:
-                print(f"{Y}⚙️  Generating...{W}", end=" ", flush=True)
+                print(f"\n{Y}⚙️  Generating certificate...{W}")
                 output_path = self.generate_certificate_pdf(candidate, manual_inputs)
-                print(f"{G}✓{W}")
-                print(f"{G}✅ {output_path}{W}")
+                print(f"\n{G}{'='*60}{W}")
+                print(f"{G}✅ SUCCESS! Certificate generated:{W}")
+                print(f"{G}   {output_path}{W}")
+                print(f"{G}{'='*60}{W}\n")
                 
             except Exception as e:
-                print(f"{R}✗{W}")
-                print(f"{R}❌ Failed: {e}{W}")
+                print(f"\n{R}{'='*60}{W}")
+                print(f"{R}❌ FAILED: {e}{W}")
+                print(f"{R}{'='*60}{W}\n")
+                import traceback
+                traceback.print_exc()
 
 def main():
-    print(f"{B}🎓 SwipeGen Certificate Generator{W}\n")
+    print(f"{B}{'='*60}{W}")
+    print(f"{B}🎓 SwipeGen Certificate Generator{W}")
+    print(f"{B}{'='*60}{W}\n")
     generator = CertificateGenerator()
     generator.run_process()
     print(f"\n{G}✨ Done!{W}")
