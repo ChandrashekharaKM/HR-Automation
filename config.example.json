@@ -2,8 +2,6 @@
   "email": "your-email@gmail.com",
   "smtp_server": "smtp.gmail.com",
   "smtp_port": 587,
-  "google_sheets_id": "your-google-sheets-id-here",
-  "default_sheets_range": "Sheet1!A1:Z1000",
   "app_name": "SwipeGen HR Automation",
   "app_version": "1.0.0"
 }

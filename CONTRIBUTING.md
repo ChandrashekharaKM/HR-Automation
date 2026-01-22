@@ -9,6 +9,7 @@ Please maintain professional and respectful communication. This project is confi
 ## 🚀 Getting Started
 
 ### Prerequisites
+
 - Python 3.8+
 - Git
 - Virtual environment setup
@@ -17,23 +18,24 @@ Please maintain professional and respectful communication. This project is confi
 ### Setup Development Environment
 
 1. **Fork and clone the repository**
+
    ```bash
    git clone https://github.com/NamanSinha786/SwipeGen_Automations.git
    cd SwipeGen-Automation
    ```
-
 2. **Create a feature branch**
+
    ```bash
    git checkout -b feature/your-feature-name
    ```
-
 3. **Create a virtual environment**
+
    ```bash
    python -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
-
 4. **Install development dependencies**
+
    ```bash
    pip install -r requirements.txt
    ```
@@ -41,19 +43,23 @@ Please maintain professional and respectful communication. This project is confi
 ## 📝 Contribution Guidelines
 
 ### Before Making Changes
+
 - Check existing issues and pull requests
 - Discuss major changes in an issue first
 - Follow the existing code style and structure
 - Ensure all tests pass before submitting
 
 ### Code Style
+
 - Follow PEP 8 guidelines
 - Use meaningful variable and function names
 - Add comments for complex logic
 - Keep functions focused and modular
 
 ### Commit Messages
+
 Use clear, descriptive commit messages:
+
 ```
 feature: Add new capability X
 fix: Resolve issue with Y
@@ -62,6 +68,7 @@ refactor: Improve code structure for feature X
 ```
 
 ### Testing
+
 - Test your changes thoroughly before submitting
 - Test with sample data to ensure functionality
 - Document any new test scenarios
@@ -69,23 +76,24 @@ refactor: Improve code structure for feature X
 ## 🔄 Pull Request Process
 
 1. **Update your branch with latest main**
+
    ```bash
    git fetch origin
    git rebase origin/main
    ```
-
 2. **Push your changes**
+
    ```bash
    git push origin feature/your-feature-name
    ```
-
 3. **Create a Pull Request**
+
    - Provide a clear description of changes
    - Reference related issues
    - Include testing details
    - List any breaking changes
-
 4. **Address feedback**
+
    - Respond to code review comments
    - Make requested changes
    - Push updates to the same branch
@@ -93,6 +101,7 @@ refactor: Improve code structure for feature X
 ## 🐛 Reporting Issues
 
 When reporting issues, please include:
+
 - Clear description of the problem
 - Steps to reproduce
 - Expected vs. actual behavior
@@ -102,12 +111,14 @@ When reporting issues, please include:
 ## 📚 Documentation
 
 ### Updating Documentation
+
 - Keep README.md updated with new features
 - Document configuration changes
 - Add examples for new functionality
 - Update SETUP.md if setup changes
 
 ### Code Documentation
+
 - Add docstrings to functions and classes
 - Include parameter descriptions
 - Document return values
@@ -116,6 +127,7 @@ When reporting issues, please include:
 ## 🔐 Security
 
 ### Security Considerations
+
 - Never commit sensitive credentials
 - Use environment variables for secrets
 - Validate all user inputs
@@ -123,6 +135,7 @@ When reporting issues, please include:
 - Keep dependencies updated
 
 ### Reporting Security Issues
+
 - Do NOT create public issues for security vulnerabilities
 - Email security concerns directly to the maintainers
 - Include proof of concept if applicable
@@ -138,6 +151,7 @@ requirements.txt   # Python dependencies
 ```
 
 ### Adding New Features
+
 1. Create new script in `scripts/` directory
 2. Follow naming convention: `optionX_description.py`
 3. Integrate with `main_menu.py`
@@ -165,6 +179,7 @@ requirements.txt   # Python dependencies
 ## 💬 Questions?
 
 Feel free to:
+
 - Open an issue with your question
 - Check existing issues for similar questions
 - Review the documentation in each script

@@ -1,33 +1,43 @@
+# Import necessary libraries
 import os
 import re
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from dotenv import load_dotenv
 
-# ANSI Color Codes
+# ANSI Color Codes for terminal output
 G, R, Y, B, C, W = '\033[92m', '\033[91m', '\033[93m', '\033[94m', '\033[96m', '\033[0m'
 
+# Class to manage the hiring process
 class HiringManager:
+    # Initialize the HiringManager
     def __init__(self):
+        # Load environment variables from .env file
         dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
         load_dotenv(dotenv_path)
+        # Set file paths and get sheet URL from environment variables
         self.creds_file = os.path.join(os.path.dirname(__file__), "service_account.json")
         self.sheet_url = os.getenv("REGISTRATION_SHEET_URL")
         self.worksheet = None
 
+    # Connect to Google Sheets
     def connect(self):
         try:
+            # Extract spreadsheet ID from the URL
             match = re.search(r'/spreadsheets/d/([a-zA-Z0-9-_]+)', self.sheet_url)
             if not match: return False
+            # Set scope and authorize credentials
             scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
             creds = ServiceAccountCredentials.from_json_keyfile_name(self.creds_file, scope)
             client = gspread.authorize(creds)
+            # Open the worksheet
             self.worksheet = client.open_by_key(match.group(1)).get_worksheet(0)
             return True
         except Exception as e:
             print(f"{R}❌ Connection Error: {e}{W}")
             return False
 
+    # Fetch candidates with "Interview Accepted" status
     def fetch_interviewed(self):
         """Fetches records safely without crashing on empty headers"""
         try:
@@ -60,6 +70,7 @@ class HiringManager:
             print(f"{R}❌ Error fetching data: {e}{W}")
             return []
 
+    # Update the status of a candidate in the sheet
     def update_status(self, row_idx, status):
         try:
             headers = self.worksheet.row_values(1)
@@ -70,29 +81,36 @@ class HiringManager:
             print(f"{R}❌ Update failed: {e}{W}")
             return False
 
+# Main function to run the hiring process
 def main():
     manager = HiringManager()
     if not manager.connect(): return
 
     while True:
+        # Fetch candidates with "Interview Accepted" status
         candidates = manager.fetch_interviewed()
         if not candidates:
             print(f"\n{G}✅ No candidates currently pending decision (Status: Interview Accepted).{W}")
             break
 
+        # Iterate through each candidate
         for c in candidates:
             name = c.get('Name') or c.get('Full Name') or "N/A"
             email = c.get('Email address') or c.get('Email') or "N/A"
             
+            # Print candidate information
             print(f"\n{B}Candidate Information:{W}")
             print(f"SL No. {c['_row']} | Name: {Y}{name}{W} | Email: {C}{email}{W}")
             print("-" * 80)
+            # Display options for the user
             print(f"{G}1. Hired{W}")
             print(f"{R}2. Reject{W}")
             print(f"{Y}3. Back{W}")
             
+            # Get user choice
             choice = input(f"\n👉 {C}Select decision for {name}: {W}").strip()
 
+            # Process user choice
             if choice == '1':
                 if manager.update_status(c['_row'], "Hired"):
                     print(f"{G}✨ Row {c['_row']} updated: HIRED{W}")
@@ -104,7 +122,9 @@ def main():
             else:
                 print(f"{R}⚠️ Invalid choice, skipping...{W}")
         
+        # Refresh the candidate list
         print(f"\n{B}--- Refreshing Candidate List ---{W}")
 
+# Entry point of the script
 if __name__ == "__main__":
     main()

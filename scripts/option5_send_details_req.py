@@ -9,20 +9,17 @@ from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
 from oauth2client.service_account import ServiceAccountCredentials
 
-# ANSI Color Codes
 G, R, Y, B, C, W = '\033[92m', '\033[91m', '\033[93m', '\033[94m', '\033[96m', '\033[0m'
 
 class OfferDetailsSender:
+    # Initialize paths, load environment variables, set up credentials, and load sent history
     def __init__(self):
-        # Setup Paths
         self.base_dir = os.path.dirname(os.path.abspath(__file__))
         dotenv_path = os.path.join(self.base_dir, '..', '.env')
         load_dotenv(dotenv_path)
         
-        # History File Path (This is the "Different Approach")
         self.history_file = os.path.join(self.base_dir, "sent_history.json")
         
-        # Credentials
         self.creds_file = os.path.join(self.base_dir, "credentials.json")
         if not os.path.exists(self.creds_file):
              self.creds_file = os.path.join(self.base_dir, "..", "service_account.json")
@@ -33,6 +30,7 @@ class OfferDetailsSender:
         self.worksheet = None
         self.sent_list = self.load_history()
 
+    # Authenticate with Google Sheets API using service account credentials
     def connect(self):
         try:
             match = re.search(r'/spreadsheets/d/([a-zA-Z0-9-_]+)', self.sheet_url)
@@ -46,9 +44,8 @@ class OfferDetailsSender:
             print(f"{R}❌ Connection Error: {e}{W}")
             return False
 
-    # --- NEW: HISTORY TRACKING FUNCTIONS ---
+    # Helper functions to read and write the list of processed emails to a local JSON file
     def load_history(self):
-        """Loads the list of emails that have already been processed."""
         if os.path.exists(self.history_file):
             try:
                 with open(self.history_file, 'r') as f:
@@ -58,14 +55,13 @@ class OfferDetailsSender:
         return []
 
     def save_history(self, email):
-        """Saves a new email to the processed list."""
         if email not in self.sent_list:
             self.sent_list.append(email)
             with open(self.history_file, 'w') as f:
                 json.dump(self.sent_list, f)
 
+    # Retrieve candidates from the sheet who are 'Hired' and not in the local history file
     def fetch_pending_candidates(self):
-        """Fetch candidates who are 'Hired' AND not in our local history file"""
         try:
             data = self.worksheet.get_all_values()
             if not data: return []
@@ -83,11 +79,9 @@ class OfferDetailsSender:
                     else:
                         row_dict[header] = ""
 
-                # --- LOGIC: Check Status 'Hired' vs Local History ---
                 status = str(row_dict.get('Status', '')).strip()
                 email = str(row_dict.get('Email address', '') or row_dict.get('Email', '')).strip()
 
-                # If Hired AND Email is NOT in our local 'sent_list'
                 if status == "Hired" and email and email not in self.sent_list:
                     row_dict['_row'] = i + 2
                     pending_list.append(row_dict)
@@ -97,6 +91,7 @@ class OfferDetailsSender:
             print(f"{R}❌ Error fetching candidates: {e}{W}")
             return []
 
+    # Read the email body from a text file and format it with the candidate's name
     def _get_template(self, name):
         try:
             template_path = os.path.join(self.base_dir, "templates", "offer_details_template.txt")
@@ -106,6 +101,7 @@ class OfferDetailsSender:
             print(f"{R}❌ Error reading template: {e}{W}")
             return None
 
+    # Establish SMTP connection to Gmail and send the formatted email
     def send_single_email(self, name, email):
         if not self.sender_email or not self.sender_password:
             print(f"{R}❌ Email credentials missing in .env{W}"); return False
@@ -131,6 +127,7 @@ class OfferDetailsSender:
             print(f"{R}❌ SMTP Error: {e}{W}")
             return False
 
+# Main execution loop: connects to sheet, finds candidates, and prompts user for action
 def main():
     sender = OfferDetailsSender()
     if not sender.connect(): return
@@ -161,8 +158,6 @@ def main():
             print(f"{Y}Sending email...{W}")
             if sender.send_single_email(name, email):
                 print(f"{G}✅ Email sent to {name}!{W}")
-                
-                # --- SAVE TO LOCAL HISTORY ---
                 print(f"{Y}Saving to local history...{W}")
                 sender.save_history(email) 
                 print(f"{G}✅ Saved. Will not prompt again.{W}")

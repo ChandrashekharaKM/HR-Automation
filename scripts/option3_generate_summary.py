@@ -1,3 +1,4 @@
+# Import necessary libraries
 import os
 import re
 import gspread
@@ -5,36 +6,47 @@ from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
 from dotenv import load_dotenv
 
-# ANSI Color Codes
+# ANSI Color Codes for terminal output
 G, R, Y, B, C, W = '\033[92m', '\033[91m', '\033[93m', '\033[94m', '\033[96m', '\033[0m'
 
+# Class to generate a recruitment summary
 class RecruitmentSummarizer:
+    # Initialize the RecruitmentSummarizer
     def __init__(self):
+        # Load environment variables from .env file
         dotenv_path = os.path.join(os.path.dirname(__file__), '..', '.env')
         load_dotenv(dotenv_path)
 
+        # Set file paths and get URLs from environment variables
         self.creds_file = os.path.join(os.path.dirname(__file__), "service_account.json")
         self.reg_url = os.getenv("REGISTRATION_SHEET_URL") or os.getenv("SHEET_URL")
         self.int_url = os.getenv("INTERVIEW_RESPONSE_SHEET_URL")
         
+        # Set scope for Google Sheets API
         self.scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
         
+        # Check if credentials file exists
         if not os.path.exists(self.creds_file):
             raise FileNotFoundError(f"Missing {self.creds_file} in scripts folder")
             
+        # Authorize credentials and create a client
         self.creds = ServiceAccountCredentials.from_json_keyfile_name(self.creds_file, self.scope)
         self.client = gspread.authorize(self.creds)
 
+    # Get a worksheet from a Google Sheet URL
     def get_sheet(self, url):
         try:
             if not url: return None
+            # Extract spreadsheet ID from the URL
             match = re.search(r'/spreadsheets/d/([a-zA-Z0-9-_]+)', url)
             if not match: return None
+            # Open the worksheet
             return self.client.open_by_key(match.group(1)).get_worksheet(0)
         except Exception as e:
             print(f"{R}❌ Connection Error: {e}{W}")
             return None
 
+    # Normalize email for better matching
     def normalize_email(self, email):
         """Normalize email for better matching - extract username part before @"""
         email = str(email).strip().lower()
@@ -44,9 +56,11 @@ class RecruitmentSummarizer:
             return email, username
         return email, email
 
+    # Run the report generation process
     def run_report(self):
         print(f"\n{C}{'='*65}\n📊 RECRUITMENT STATUS SUMMARY & SYNC\n{'='*65}{W}")
 
+        # Get registration and interview sheets
         reg_sheet = self.get_sheet(self.reg_url)
         int_sheet = self.get_sheet(self.int_url)
 
@@ -54,6 +68,7 @@ class RecruitmentSummarizer:
             print(f"{R}❌ Error: One or both sheets could not be reached.{W}")
             return
 
+        # Get all records from the sheets
         reg_records = reg_sheet.get_all_records()
         int_records = int_sheet.get_all_records()
 
@@ -139,14 +154,15 @@ class RecruitmentSummarizer:
             print(f"{Y}⚠️  Candidates without interview response: {no_match_count}{W}")
         
         print(f"\n{B}{'='*65}\n📈 FINAL RECRUITMENT REPORT\n{'='*65}{W}")
-        print(f"{'Metric':<40} | {'Count':<10}")
+        print(f"{ 'Metric':<40} | {'Count':<10}")
         print("-" * 65)
-        print(f"{'Total Candidates Applied':<40} | {C}{stats['applied']:<10}{W}")
-        print(f"{'Total Candidates Shortlisted':<40} | {Y}{stats['shortlisted']:<10}{W}")
-        print(f"{'Interview Invites Accepted':<40} | {G}{stats['accepted']:<10}{W}")
-        print(f"{'Interview Invites Declined/Hold':<40} | {R}{stats['declined']:<10}{W}")
+        print(f"{ 'Total Candidates Applied':<40} | {C}{stats['applied']:<10}{W}")
+        print(f"{ 'Total Candidates Shortlisted':<40} | {Y}{stats['shortlisted']:<10}{W}")
+        print(f"{ 'Interview Invites Accepted':<40} | {G}{stats['accepted']:<10}{W}")
+        print(f"{ 'Interview Invites Declined/Hold':<40} | {R}{stats['declined']:<10}{W}")
         print(f"{B}{'='*65}{W}\n")
 
+# Main function to run the summarizer
 def main():
     try:
         summarizer = RecruitmentSummarizer()
@@ -154,5 +170,6 @@ def main():
     except Exception as e:
         print(f"{R}Error: {e}{W}")
 
+# Entry point of the script
 if __name__ == "__main__":
     main()
