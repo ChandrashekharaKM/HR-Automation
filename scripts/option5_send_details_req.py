@@ -12,172 +12,93 @@ from oauth2client.service_account import ServiceAccountCredentials
 G, R, Y, B, C, W = '\033[92m', '\033[91m', '\033[93m', '\033[94m', '\033[96m', '\033[0m'
 
 class OfferDetailsSender:
-    # Initialize paths, load environment variables, set up credentials, and load sent history
     def __init__(self):
         self.base_dir = os.path.dirname(os.path.abspath(__file__))
-        dotenv_path = os.path.join(self.base_dir, '..', '.env')
-        load_dotenv(dotenv_path)
-        
+        load_dotenv(os.path.join(self.base_dir, '..', '.env'))
         self.history_file = os.path.join(self.base_dir, "sent_history.json")
-        
-        self.creds_file = os.path.join(self.base_dir, "credentials.json")
-        if not os.path.exists(self.creds_file):
-             self.creds_file = os.path.join(self.base_dir, "..", "service_account.json")
-
+        self.creds_file = os.path.join(self.base_dir, "service_account.json")
         self.sender_email = os.getenv("SENDER_EMAIL")
         self.sender_password = os.getenv("SENDER_PASSWORD")
         self.sheet_url = os.getenv("REGISTRATION_SHEET_URL")
         self.worksheet = None
         self.sent_list = self.load_history()
 
-    # Authenticate with Google Sheets API using service account credentials
     def connect(self):
         try:
-            match = re.search(r'/spreadsheets/d/([a-zA-Z0-9-_]+)', self.sheet_url)
-            if not match: return False
             scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
             creds = ServiceAccountCredentials.from_json_keyfile_name(self.creds_file, scope)
             client = gspread.authorize(creds)
-            self.worksheet = client.open_by_key(match.group(1)).get_worksheet(0)
+            spreadsheet = client.open_by_url(self.sheet_url)
+            
+            gid_match = re.search(r'gid=([0-9]+)', self.sheet_url)
+            if gid_match:
+                target_gid = int(gid_match.group(1))
+                for sheet in spreadsheet.worksheets():
+                    if sheet.id == target_gid:
+                        self.worksheet = sheet
+                        return True
+            self.worksheet = spreadsheet.get_worksheet(0)
             return True
         except Exception as e:
-            print(f"{R}❌ Connection Error: {e}{W}")
-            return False
+            print(f"{R}❌ Connection Error: {e}{W}"); return False
 
-    # Helper functions to read and write the list of processed emails to a local JSON file
     def load_history(self):
         if os.path.exists(self.history_file):
             try:
-                with open(self.history_file, 'r') as f:
-                    return json.load(f)
-            except:
-                return []
+                with open(self.history_file, 'r') as f: return json.load(f)
+            except: return []
         return []
 
     def save_history(self, email):
         if email not in self.sent_list:
             self.sent_list.append(email)
-            with open(self.history_file, 'w') as f:
-                json.dump(self.sent_list, f)
+            with open(self.history_file, 'w') as f: json.dump(self.sent_list, f)
 
-    # Retrieve candidates from the sheet who are 'Hired' and not in the local history file
     def fetch_pending_candidates(self):
         try:
-            data = self.worksheet.get_all_values()
-            if not data: return []
-            
-            raw_headers = data[0]
-            headers = [h.strip() for h in raw_headers]
-            rows = data[1:]
-            pending_list = []
-            
-            for i, row_vals in enumerate(rows):
-                row_dict = {}
-                for idx, header in enumerate(headers):
-                    if idx < len(row_vals):
-                        row_dict[header] = row_vals[idx]
-                    else:
-                        row_dict[header] = ""
-
-                status = str(row_dict.get('Status', '')).strip()
-                email = str(row_dict.get('Email address', '') or row_dict.get('Email', '')).strip()
-
-                if status == "Hired" and email and email not in self.sent_list:
-                    row_dict['_row'] = i + 2
-                    pending_list.append(row_dict)
-            
-            return pending_list
+            data = self.worksheet.get_all_records()
+            return [dict(r, _row=i+2) for i, r in enumerate(data) if str(r.get('Status','')).strip()=="Hired" and r.get('Email address') not in self.sent_list]
         except Exception as e:
-            print(f"{R}❌ Error fetching candidates: {e}{W}")
-            return []
+            print(f"{R}Error: {e}{W}"); return []
 
-    # Read the email body from a text file and format it with the candidate's name
-    def _get_template(self, name):
-        try:
-            template_path = os.path.join(self.base_dir, "templates", "offer_details_template.txt")
-            with open(template_path, "r", encoding="utf-8") as file:
-                return file.read().format(name=name)
-        except Exception as e:
-            print(f"{R}❌ Error reading template: {e}{W}")
-            return None
-
-    # Establish SMTP connection to Gmail and send the formatted email
     def send_single_email(self, name, email):
-        if not self.sender_email or not self.sender_password:
-            print(f"{R}❌ Email credentials missing in .env{W}"); return False
-
+        if not self.sender_email or not self.sender_password: return False
         try:
             server = smtplib.SMTP("smtp.gmail.com", 587)
             server.starttls()
             server.login(self.sender_email, self.sender_password)
-            
-            body = self._get_template(name)
-            if not body: return False
-
+            template_path = os.path.join(self.base_dir, "templates", "offer_details_template.html")
+            with open(template_path, "r", encoding="utf-8") as f: body = f.read().format(name=name)
             msg = MIMEMultipart()
             msg['From'] = self.sender_email
             msg['To'] = email
             msg['Subject'] = "Congratulations! Next Steps for your Offer Letter - SwipeGen"
             msg.attach(MIMEText(body, 'plain'))
-
             server.sendmail(self.sender_email, email, msg.as_string())
             server.quit()
             return True
         except Exception as e:
-            print(f"{R}❌ SMTP Error: {e}{W}")
-            return False
+            print(f"{R}SMTP Error: {e}{W}"); return False
 
-# Main execution loop: connects to sheet, finds candidates, and prompts user for action
 def main():
     sender = OfferDetailsSender()
     if not sender.connect(): return
-
     print(f"\n{C}{'='*80}\n           OPTION 5: SEND OFFER DETAILS (LOCAL TRACKING)\n{'='*80}{W}")
-
     candidates = sender.fetch_pending_candidates()
-
-    if not candidates:
-        print(f"\n{G}✅ No pending candidates found (Checked against 'sent_history.json').{W}")
-        return
-
+    if not candidates: print(f"\n{G}✅ No pending candidates.{W}"); return
+    
     for c in candidates:
         name = c.get('Name') or c.get('Full Name') or "N/A"
-        email = c.get('Email address') or c.get('Email') or "N/A"
-        row_num = c.get('_row')
-        
-        print(f"\n{B}Candidate Info:{W}")
-        print(f"Row {row_num} | Name: {Y}{name}{W} | Email: {C}{email}{W}")
-        print("-" * 80)
-        print(f"{G}1. Send Email{W}")
-        print(f"{Y}2. Skip{W}")
-        print(f"{R}3. Exit{W}")
-        
-        choice = input(f"\n👉 {C}Action for {name}: {W}").strip()
-
+        email = c.get('Email address') or c.get('Email')
+        print(f"\n{B}Candidate:{W} {name} | {email}")
+        print(f"{G}1. Send{W} | {Y}2. Skip{W} | {R}3. Exit{W}")
+        choice = input("👉 Action: ").strip()
         if choice == '1':
-            print(f"{Y}Sending email...{W}")
             if sender.send_single_email(name, email):
-                print(f"{G}✅ Email sent to {name}!{W}")
-                print(f"{Y}Saving to local history...{W}")
-                sender.save_history(email) 
-                print(f"{G}✅ Saved. Will not prompt again.{W}")
-            else:
-                print(f"{R}❌ Failed to send email.{W}")
-            
-            time.sleep(1)
-            
-        elif choice == '2':
-            print(f"{Y}⏭️  Skipped {name}{W}")
-            continue
-            
-        elif choice == '3':
-            print(f"\n{Y}Exiting...{W}")
-            return
-            
-        else:
-            print(f"{R}⚠️ Invalid choice, skipping...{W}")
-    
-    print(f"\n{G}✅ All pending candidates processed.{W}")
+                sender.save_history(email)
+                print(f"{G}✅ Sent & Saved.{W}")
+            else: print(f"{R}❌ Failed.{W}")
+        elif choice == '3': return
 
 if __name__ == "__main__":
     main()

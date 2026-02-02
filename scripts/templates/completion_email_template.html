@@ -2,152 +2,64 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            background-color: #f5f5f5;
-            margin: 0;
-            padding: 0;
-        }
-        .container {
-            max-width: 600px;
-            margin: 20px auto;
-            background-color: #ffffff;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px 20px;
-            text-align: center;
-        }
-        .header h1 {
-            margin: 0;
-            font-size: 28px;
-        }
-        .content {
-            padding: 30px 20px;
-        }
-        .content p {
-            margin: 15px 0;
-            text-align: justify;
-        }
-        .congratulations {
-            font-size: 18px;
-            color: #667eea;
-            font-weight: bold;
-            text-align: center;
-        }
-        .certificate-note {
-            background-color: #f0f7ff;
-            border-left: 4px solid #667eea;
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 4px;
-        }
-        .certificate-note p {
-            margin: 8px 0;
-            color: #555;
-        }
-        .social-links {
-            text-align: center;
-            margin: 20px 0;
-        }
-        .social-links a {
-            display: inline-block;
-            margin: 0 10px;
-            text-decoration: none;
-        }
-        .social-links img {
-            width: 35px;
-            height: 35px;
-            transition: transform 0.3s ease;
-        }
-        .social-links img:hover {
-            transform: scale(1.1);
-        }
-        .footer {
-            background-color: #f9f9f9;
-            padding: 20px;
-            border-top: 1px solid #e0e0e0;
-            text-align: center;
-            font-size: 12px;
-        }
-        .footer p {
-            margin: 5px 0;
-        }
-        .contact-info {
-            color: #666;
-            font-size: 13px;
-        }
-        .sign-off {
-            font-weight: bold;
-            color: #667eea;
-            margin-top: 15px;
-        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; background-color: #f5f5f5; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden; }
+        .header { background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%); color: white; padding: 30px 20px; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .content { padding: 30px 25px; }
+        .footer { background-color: #f9f9f9; padding: 15px; border-top: 1px solid #e0e0e0; text-align: center; font-size: 11px; color: #999; }
+        
+        .signature { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; }
+        .sig-logo { width: 140px; display: block; margin-bottom: 10px; }
+        .social-table { margin-top: 10px; }
+        .social-table td { padding-right: 15px; vertical-align: middle; }
+        .social-icon { width: 32px; height: 32px; display: block; border-radius: 4px; transition: transform 0.2s; }
+        .social-icon:hover { transform: scale(1.1); }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🎉 Congratulations!</h1>
+            <h1>🎉 Internship Completed!</h1>
         </div>
-        
         <div class="content">
-            <p>Dear {name},</p>
+            <p>Dear <b>{name}</b>,</p>
             
-            <p class="congratulations">You Have Successfully Completed Your Internship!</p>
+            <p style="color: #28a745; font-weight: bold; font-size: 18px; text-align: center;">Congratulations on your Completion!</p>
             
-            <p>We are delighted to congratulate you on successfully completing your internship at <b>SwipeGen</b>. This is a significant milestone in your professional journey!</p>
+            <p>We are delighted to congratulate you on successfully completing your internship at <b>SwipeGen</b>. Your contributions to our team have been invaluable.</p>
             
-            <p>During your time with us, you demonstrated exceptional dedication, discipline, and a genuine commitment to learning. Your contributions to our team have been invaluable, and we have truly appreciated working with you.</p>
-            
-            <p>Your completion certificate is attached to this email. Please keep it safe for your records and future reference.</p>
-            
-            <div class="certificate-note">
-                <p><b>📜 Your Completion Certificate</b></p>
-                <p>Your certificate of completion has been generated and attached to this email. It certifies that you have successfully completed your internship with SwipeGen.</p>
+            <div style="background-color: #f0fff4; padding: 15px; border-left: 4px solid #28a745; margin: 20px 0;">
+                <p style="margin: 0; color: #155724;">📜 <b>Your Completion Certificate is attached to this email.</b></p>
             </div>
             
-            <p>We wish you all the very best in your future endeavors. The skills and experience you've gained with us will undoubtedly serve you well in your career ahead.</p>
-            
-            <p>We would be delighted to stay connected with you and wish you continued success!</p>
-            
-            <p class="sign-off">Until we meet again!</p>
-            
-            <p>
-                <b>Thanks and Regards,</b><br>
-                <b>Team SwipeGen</b><br>
-                <span class="contact-info">📱 +91-7985199972 | 📧 <a href="mailto:mail.swipegen@gmail.com" style="color: #667eea; text-decoration: none;">mail.swipegen@gmail.com</a></span>
-            </p>
-            
-            <div class="social-links">
-                <a href="{ig_link}" title="Follow us on Instagram">
-                    <img src="https://cdn-icons-png.flaticon.com/512/174/174855.png" alt="Instagram">
+            <p>We wish you all the very best in your future endeavors. Stay connected!</p>
+
+            <div class="signature">
+                <p style="margin-bottom: 5px;">Thanks and Regards,</p>
+                <p style="margin-top: 0; color: #0056b3; font-weight: bold; font-size: 16px;">Team SwipeGen</p>
+                
+                <a href="{web_link}" target="_blank">
+                    <img src="{logo_url}" alt="SwipeGen" class="sig-logo">
                 </a>
-                <a href="{li_link}" title="Connect on LinkedIn">
-                    <img src="https://cdn-icons-png.flaticon.com/512/174/174857.png" alt="LinkedIn">
-                </a>
-                <a href="{web_link}" title="Visit our website">
-                    <img src="https://cdn-icons-png.flaticon.com/512/841/841364.png" alt="Website">
-                </a>
+
+                <p style="font-size: 13px; color: #555; margin: 10px 0;">
+                    📱 +91-7985199972 <br>
+                    📧 <a href="mailto:mail.swipegen@gmail.com" style="color: #0056b3; text-decoration: none;">mail.swipegen@gmail.com</a>
+                </p>
+
+                <table class="social-table" border="0" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td><a href="{li_link}" target="_blank"><img src="{li_icon}" alt="LinkedIn" class="social-icon"></a></td>
+                        <td><a href="{ig_link}" target="_blank"><img src="{ig_icon}" alt="Instagram" class="social-icon"></a></td>
+                        <td><a href="{google_link}" target="_blank"><img src="{google_icon}" alt="Google" class="social-icon"></a></td>
+                    </tr>
+                </table>
+                <p style="margin-top: 15px;"><a href="{web_link}" style="color: #0056b3; text-decoration: none; font-size: 12px;">www.swipegen.in</a></p>
             </div>
-            
-            <p style="text-align: center;">
-                <a href="{web_link}" style="color: #667eea; text-decoration: none; font-weight: bold;">www.swipegen.in</a>
-            </p>
         </div>
-        
-        <div class="footer">
-            <p><b>SwipeGen HR Automation System</b></p>
-            <p>This is an automated email generated by our HR system.</p>
-            <p style="color: #999; font-size: 11px;">© 2026 SwipeGen. All rights reserved.</p>
-        </div>
+        <div class="footer"><p>© 2026 SwipeGen. Get "IT" Right!</p></div>
     </div>
 </body>
 </html>

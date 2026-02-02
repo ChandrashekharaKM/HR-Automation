@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; background-color: #f5f5f5; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); overflow: hidden; }
+        .header { background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%); color: white; padding: 30px 20px; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .content { padding: 30px 25px; }
+        .btn { display: inline-block; background-color: #28a745; color: #ffffff !important; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; margin: 20px 0; }
+        .footer { background-color: #f9f9f9; padding: 15px; border-top: 1px solid #e0e0e0; text-align: center; font-size: 11px; color: #999; }
+        
+        .signature { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; }
+        .sig-logo { width: 140px; display: block; margin-bottom: 10px; }
+        .social-table { margin-top: 10px; }
+        .social-table td { padding-right: 15px; vertical-align: middle; }
+        .social-icon { width: 32px; height: 32px; display: block; border-radius: 4px; transition: transform 0.2s; }
+        .social-icon:hover { transform: scale(1.1); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎉 Congratulations!</h1>
+        </div>
+        <div class="content">
+            <p>Hi <b>{name}</b>,</p>
+            <p>Congratulations on clearing all the evaluation rounds! We are excited to process your official Offer Letter.</p>
+            <p>Please provide your details in the form below to help us generate your letter:</p>
+            
+            <div style="text-align: center;">
+                <a href="https://forms.gle/8WrvWZhpvEuH9iEW7" class="btn">Submit Offer Details</a>
+            </div>
+            
+            <p style="background-color: #fff3cd; padding: 10px; font-size: 13px; border-radius: 4px;">⚠️ <b>Note:</b> Ensure your Name and Address are correct as they will appear on your certificate.</p>
+
+            <div class="signature">
+                <p style="margin-bottom: 5px;">Thanks and Regards,</p>
+                <p style="margin-top: 0; color: #0056b3; font-weight: bold; font-size: 16px;">Team SwipeGen</p>
+                
+                <a href="{web_link}" target="_blank">
+                    <img src="{logo_url}" alt="SwipeGen" class="sig-logo">
+                </a>
+
+                <p style="font-size: 13px; color: #555; margin: 10px 0;">
+                    📱 +91-7985199972 <br>
+                    📧 <a href="mailto:mail.swipegen@gmail.com" style="color: #0056b3; text-decoration: none;">mail.swipegen@gmail.com</a>
+                </p>
+
+                <table class="social-table" border="0" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td><a href="{li_link}" target="_blank"><img src="{li_icon}" alt="LinkedIn" class="social-icon"></a></td>
+                        <td><a href="{ig_link}" target="_blank"><img src="{ig_icon}" alt="Instagram" class="social-icon"></a></td>
+                        <td><a href="{google_link}" target="_blank"><img src="{google_icon}" alt="Google" class="social-icon"></a></td>
+                    </tr>
+                </table>
+                <p style="margin-top: 15px;"><a href="{web_link}" style="color: #0056b3; text-decoration: none; font-size: 12px;">www.swipegen.in</a></p>
+            </div>
+        </div>
+        <div class="footer"><p>© 2026 SwipeGen. Get "IT" Right!</p></div>
+    </div>
+</body>
+</html>
