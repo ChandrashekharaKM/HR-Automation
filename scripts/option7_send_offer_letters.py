@@ -21,23 +21,20 @@ class OfferEmailSender:
         self.reg_sheet_url = os.getenv("REGISTRATION_SHEET_URL")
         self.sender_email = os.getenv("SENDER_EMAIL")
         self.sender_password = os.getenv("SENDER_PASSWORD")
-        
-        # Load Social Links & Images
+        self.template_path = os.path.join(self.script_dir, "templates", "offer_email_template.html")
+        self.offer_dir = os.path.join(self.script_dir, "output", "offer_letters")
+        self.worksheet = None
         self.social_links = {
             "web_link": os.getenv("WEBSITE_URL", "#"),
             "ig_link": os.getenv("INSTAGRAM_URL", "#"),
             "li_link": os.getenv("LINKEDIN_URL", "#"),
-            "google_link": os.getenv("GOOGLE_SEARCH_URL", "#"),
+            "google_link": os.getenv("GOOGLE_SEARCH_URL", "#"), # Required by template
             
             "logo_url": os.getenv("SWIPEGEN_LOGO_URL", ""),
             "ig_icon": os.getenv("INSTAGRAM_ICON_URL", ""),
             "li_icon": os.getenv("LINKEDIN_ICON_URL", ""),
-            "google_icon": os.getenv("GOOGLE_ICON_URL", "")
+            "google_icon": os.getenv("GOOGLE_ICON_URL", "")     # Required by template
         }
-
-        self.template_path = os.path.join(self.script_dir, "templates", "offer_email_template.html")
-        self.offer_dir = os.path.join(self.script_dir, "output", "offer_letters")
-        self.worksheet = None
 
     def connect(self):
         try:
@@ -92,7 +89,7 @@ class OfferEmailSender:
         # -----------------------------
 
         msg = MIMEMultipart()
-        msg['From'] = f"Team SwipeGen <{self.sender_email}>"
+        msg['From'] = self.sender_email
         msg['To'] = recipient_email
         msg['Subject'] = "Journey with SwipeGen begins now!"
 

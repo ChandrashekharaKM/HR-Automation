@@ -22,9 +22,15 @@ class CompletionEmailSender:
         self.template_path = os.path.join(self.script_dir, "templates", "completion_email_template.html")
         self.cert_folder = os.path.join(self.script_dir, "output", "certificates")
         self.social_links = {
-            "ig_link": "https://www.instagram.com/swipegen/",
-            "li_link": "https://www.linkedin.com/company/swipegen",
-            "web_link": "https://www.swipegen.in"
+            "web_link": os.getenv("WEBSITE_URL", "#"),
+            "ig_link": os.getenv("INSTAGRAM_URL", "#"),
+            "li_link": os.getenv("LINKEDIN_URL", "#"),
+            "google_link": os.getenv("GOOGLE_SEARCH_URL", "#"), # Required by template
+            
+            "logo_url": os.getenv("SWIPEGEN_LOGO_URL", ""),
+            "ig_icon": os.getenv("INSTAGRAM_ICON_URL", ""),
+            "li_icon": os.getenv("LINKEDIN_ICON_URL", ""),
+            "google_icon": os.getenv("GOOGLE_ICON_URL", "")     # Required by template
         }
 
     def connect_sheet(self):
