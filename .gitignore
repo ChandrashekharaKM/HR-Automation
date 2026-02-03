@@ -49,6 +49,11 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 
+# Sensitive credential files
+client_secret.json
+token.json
+service_account.json
+
 # Translations
 *.mo
 *.pot
