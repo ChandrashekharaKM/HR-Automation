@@ -8,7 +8,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 from oauth2client.service_account import ServiceAccountCredentials
 
-# Google Drive API Imports (User OAuth for Uploads)
+# Google Drive API Imports
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -21,12 +21,10 @@ class OfferLetterGenerator:
         self.script_dir = os.path.dirname(os.path.abspath(__file__))
         load_dotenv(os.path.join(self.script_dir, "..", ".env"))
         
-        # Credentials
         self.creds_file = os.path.join(self.script_dir, "service_account.json")
         self.client_secret_file = os.path.join(self.script_dir, "client_secret.json") 
         self.token_file = os.path.join(self.script_dir, "token.json") 
         
-        # Config
         self.sheet_url = os.getenv("REGISTRATION_SHEET_URL")
         self.drive_folder_id = os.getenv("OFFER_LETTERS_DRIVE_FOLDER_ID")
 
@@ -38,7 +36,6 @@ class OfferLetterGenerator:
         self.sheet_instance = None
 
     def get_drive_service(self):
-        """Authenticates as YOU (User) to fix Storage Quota issues"""
         creds = None
         if os.path.exists(self.token_file):
             with open(self.token_file, 'rb') as token:
@@ -111,9 +108,7 @@ class OfferLetterGenerator:
     def update_sheet_start_date(self, row_idx, new_date):
         try:
             headers = self.sheet_instance.row_values(1)
-            # Smart find 'Start Date' column (ignores case/spaces)
             col_idx = next((i for i, h in enumerate(headers, 1) if "start" in h.lower() and "date" in h.lower()), None)
-            
             if col_idx:
                 self.sheet_instance.update_cell(row_idx, col_idx, new_date)
             else:
@@ -153,7 +148,6 @@ class OfferLetterGenerator:
             if font_props['color']: new_run.font.color.rgb = font_props['color']
 
     def _smart_get_value(self, candidate, keywords):
-        """Scans dictionary keys to find one that contains ANY of the keywords"""
         for key, value in candidate.items():
             for kw in keywords:
                 if kw.lower() in key.lower():
@@ -162,11 +156,9 @@ class OfferLetterGenerator:
         return None
 
     def generate_offer_pdf(self, candidate, manual_data, row_idx):
-        # 1. Smart Fetch Name (Now looks for 'Name', 'Full Name', etc.)
         full_name = self._smart_get_value(candidate, ["name", "full name", "student name", "candidate"])
         if not full_name: full_name = "Candidate"
         
-        # 2. Smart Fetch ID (or fallback)
         candidate_id = self._smart_get_value(candidate, ["id", "roll", "reg"])
         
         data = {
@@ -178,7 +170,6 @@ class OfferLetterGenerator:
         doc = Document(self.template_docx)
         self.replace_placeholders(doc, data)
         
-        # --- FILENAME LOGIC ---
         safe_name = "".join([c if c.isalnum() or c == '_' else "_" for c in full_name])
         
         if candidate_id:
@@ -186,7 +177,6 @@ class OfferLetterGenerator:
             pdf_filename = f"Offer_{safe_name}_{safe_id}.pdf"
         else:
             pdf_filename = f"Offer_{safe_name}.pdf"
-        # ----------------------
 
         docx_path = os.path.join(self.output_dir, f"Offer_{safe_name}.docx")
         pdf_path = os.path.join(self.output_dir, pdf_filename)
@@ -203,7 +193,8 @@ class OfferLetterGenerator:
             return docx_path, None
 
     def _smart_get_start_date(self, candidate):
-        val = self._smart_get_value(candidate, ["start date", "expected start", "joining", "start_date"])
+        keywords = ["start_date", "start date", "joining_date", "doj", "expected start"]
+        val = self._smart_get_value(candidate, keywords)
         return val if val else "TBD"
 
     def run_process(self):
@@ -223,7 +214,6 @@ class OfferLetterGenerator:
             status = str(candidate.get("Status", "")).strip()
             if status != "Hired": continue 
             
-            # Fetch name for display using smart logic
             name = self._smart_get_value(candidate, ["name", "full name", "candidate"]) or "Unknown"
             print(f"\n{B}[{idx+1}/{len(candidates)}] {name} ({G}{status}{W}){W}")
             
@@ -236,11 +226,25 @@ class OfferLetterGenerator:
             m_place = input(f"📍 Place [Bengaluru]: ").strip() or "Bengaluru"
             m_role = input(f"💼 Role [Software Developer - Intern]: ").strip() or "Software Developer - Intern"
             
+            # --- UPDATED: Ask User Explicitly ---
             fetched_start = self._smart_get_start_date(candidate)
-            m_start = input(f"🗓️  Start Date [{fetched_start}]: ").strip() or fetched_start
-            
-            if m_start != fetched_start:
+            m_start = "TBD"
+
+            if fetched_start and fetched_start != "TBD":
+                print(f"   🗓️  Found Start Date in Sheet : {C}{fetched_start}{W}")
+                use_sheet = input(f"   👉 Use this date? (y/n): ").strip().lower()
+                
+                if use_sheet == 'y':
+                    m_start = fetched_start
+                else:
+                    m_start = input(f"   ✍️  Enter Start Date: ").strip()
+            else:
+                m_start = input(f"   ✍️  Enter Start Date: ").strip()
+
+            # Update sheet if user typed a new date
+            if m_start and m_start != fetched_start:
                 self.update_sheet_start_date(idx + 2, m_start)
+            # ------------------------------------
             
             manual_inputs = {'date': m_date, 'place': m_place, 'role': m_role, 'start_date': m_start}
 
@@ -256,7 +260,7 @@ class OfferLetterGenerator:
                 print(f"{R}❌ Failed: {e}{W}")
 
 def main():
-    print(f"{B}📄 SwipeGen Offer Letter Generator (Smart Name Detection){W}\n")
+    print(f"{B}📄 SwipeGen Offer Letter Generator{W}\n")
     generator = OfferLetterGenerator()
     generator.run_process()
     print(f"\n{G}✨ Done!{W}")

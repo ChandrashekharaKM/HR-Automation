@@ -6,6 +6,7 @@ import time
 import json
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.image import MIMEImage # Required for local images
 from dotenv import load_dotenv
 from oauth2client.service_account import ServiceAccountCredentials
 
@@ -15,44 +16,59 @@ class OfferDetailsSender:
     def __init__(self):
         self.base_dir = os.path.dirname(os.path.abspath(__file__))
         load_dotenv(os.path.join(self.base_dir, '..', '.env'))
+        
         self.history_file = os.path.join(self.base_dir, "sent_history.json")
         self.creds_file = os.path.join(self.base_dir, "service_account.json")
+        self.images_dir = os.path.join(self.base_dir, "images") # Local images folder
         
         self.sender_email = os.getenv("SENDER_EMAIL")
         self.sender_password = os.getenv("SENDER_PASSWORD")
         self.sheet_url = os.getenv("REGISTRATION_SHEET_URL")
         
-        # Load Social Links & Images from .env
+        self.worksheet = None
+        self.sent_list = self.load_history()
+
+        # 1. Map Placeholders to Local Filenames
+        self.local_images = {
+            "logo_url": "logo.png",
+            "ig_icon": "instagram.png",
+            "li_icon": "linkedin.png",
+            "google_icon": "google.png"
+        }
+
+        # 2. Data for HTML Replacement (Using cid: for images)
         self.placeholders = {
             "web_link": os.getenv("WEBSITE_URL", "https://www.swipegen.in"),
             "ig_link": os.getenv("INSTAGRAM_URL", "#"),
             "li_link": os.getenv("LINKEDIN_URL", "#"),
             "google_link": os.getenv("GOOGLE_SEARCH_URL", "#"),
-            "logo_url": os.getenv("SWIPEGEN_LOGO_URL", ""),
-            "ig_icon": os.getenv("INSTAGRAM_ICON_URL", "https://cdn-icons-png.flaticon.com/512/174/174855.png"),
-            "li_icon": os.getenv("LINKEDIN_ICON_URL", "https://cdn-icons-png.flaticon.com/512/174/174857.png"),
-            "google_icon": os.getenv("GOOGLE_ICON_URL", "https://cdn-icons-png.flaticon.com/512/300/300221.png")
+            
+            # These point to the attachments we create later
+            "logo_url": "cid:logo_url",
+            "ig_icon": "cid:ig_icon",
+            "li_icon": "cid:li_icon",
+            "google_icon": "cid:google_icon"
         }
-        
-        self.worksheet = None
-        self.sent_list = self.load_history()
 
     def connect(self):
         try:
+            print(f"{Y}⏳ Connecting to Google Sheets...{W}")
             scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
             creds = ServiceAccountCredentials.from_json_keyfile_name(self.creds_file, scope)
             client = gspread.authorize(creds)
             
-            # Open Sheet
             spreadsheet = client.open_by_url(self.sheet_url)
             gid_match = re.search(r'gid=([0-9]+)', self.sheet_url)
+            
+            target_sheet = None
             if gid_match:
                 target_gid = int(gid_match.group(1))
                 for sheet in spreadsheet.worksheets():
                     if sheet.id == target_gid:
-                        self.worksheet = sheet
-                        return True
-            self.worksheet = spreadsheet.get_worksheet(0)
+                        target_sheet = sheet; break
+            
+            self.worksheet = target_sheet if target_sheet else spreadsheet.get_worksheet(0)
+            print(f"{G}✅ Connected to Tab: {self.worksheet.title}{W}")
             return True
         except Exception as e:
             print(f"{R}❌ Connection Error: {e}{W}"); return False
@@ -81,20 +97,23 @@ class OfferDetailsSender:
                 email_idx = next(i for i, h in enumerate(headers) if "email" in h)
                 name_idx = next(i for i, h in enumerate(headers) if "name" in h)
             except StopIteration:
-                print(f"{R}❌ Error: Columns missing.{W}")
+                print(f"{R}❌ Error: Required columns (Name, Email, Status) missing.{W}")
                 return []
 
             pending_candidates = []
-            print(f"{Y}⏳ Scanning rows...{W}")
-
+            
             for i, row in enumerate(data[1:], 1):
                 status = row[status_idx].strip() if len(row) > status_idx else ""
                 email = row[email_idx].strip() if len(row) > email_idx else ""
                 name = row[name_idx].strip() if len(row) > name_idx else "Candidate"
                 
+                # Check 1: Must be Hired
                 if status.lower() == "hired":
+                    # Check 2: Must NOT be in history
                     if email in self.sent_list:
-                        print(f"   ⏩ Skipping {name} - {C}Already Sent{W}")
+                        # Optional: Print skipped ones if debugging
+                        # print(f"   ⏩ Skipping {name} (Already Sent)")
+                        pass
                     else:
                         cand_dict = {'Name': name, 'Email': email, '_row': i+1}
                         pending_candidates.append(cand_dict)
@@ -102,11 +121,29 @@ class OfferDetailsSender:
             return pending_candidates
 
         except Exception as e:
-            print(f"{R}Error: {e}{W}"); return []
+            print(f"{R}Error fetching data: {e}{W}"); return []
+
+    def attach_image(self, msg, filename, content_id):
+        """Helper to attach local image with Content-ID"""
+        file_path = os.path.join(self.images_dir, filename)
+        if not os.path.exists(file_path):
+            print(f"{Y}   ⚠️ Image missing: {filename}{W}")
+            return
+
+        try:
+            with open(file_path, 'rb') as f:
+                img_data = f.read()
+            
+            image = MIMEImage(img_data)
+            image.add_header('Content-ID', f'<{content_id}>') 
+            image.add_header('Content-Disposition', 'inline', filename=filename)
+            msg.attach(image)
+        except Exception as e:
+            print(f"{R}   ❌ Failed to attach {filename}: {e}{W}")
 
     def send_single_email(self, name, email):
         if not self.sender_email or not self.sender_password: 
-            print(f"{R}❌ Error: Check .env{W}"); return False
+            print(f"{R}❌ Credentials missing in .env{W}"); return False
             
         try:
             server = smtplib.SMTP("smtp.gmail.com", 587)
@@ -114,35 +151,39 @@ class OfferDetailsSender:
             server.login(self.sender_email, self.sender_password)
             
             subject = "Congratulations! Next Steps for your Offer Letter - SwipeGen"
+            
+            # 1. Prepare Content
             template_path = os.path.join(self.base_dir, "templates", "offer_details_template.html")
+            body = ""
             
             if os.path.exists(template_path):
                 with open(template_path, "r", encoding="utf-8") as f:
                     raw_html = f.read()
-                    
-                    # 1. Replace Name
+                    # Replace Name
                     body = raw_html.replace("{name}", name).replace("{NAME}", name)
-                    
-                    # 2. Replace Social Links & Logos (The Fix)
+                    # Replace Links & Image CIDs
                     for key, value in self.placeholders.items():
-                        # Using simple string replace for HTML
                         body = body.replace(f"{{{key}}}", str(value))
             else:
-                body = f"Hi {name},\n\nCongratulations! Please check the portal."
+                body = f"<p>Hi {name}, Congratulations! You are hired.</p>"
 
-            msg = MIMEMultipart()
+            # 2. Construct Email (Multipart/Related for inline images)
+            msg = MIMEMultipart('related')
             msg['From'] = self.sender_email
             msg['To'] = email
             msg['Subject'] = subject
             
-            if "<html" in body:
-                msg.attach(MIMEText(body, 'html'))
-            else:
-                msg.attach(MIMEText(body, 'plain'))
+            msg.attach(MIMEText(body, 'html'))
+
+            # 3. Attach Images
+            for cid_name, filename in self.local_images.items():
+                self.attach_image(msg, filename, cid_name)
                 
+            # 4. Send
             server.sendmail(self.sender_email, email, msg.as_string())
             server.quit()
             return True
+
         except Exception as e:
             print(f"{R}❌ SMTP Error: {e}{W}"); return False
 
@@ -150,29 +191,38 @@ def main():
     sender = OfferDetailsSender()
     if not sender.connect(): return
     
-    print(f"\n{C}{'='*80}\n           OPTION 5: SEND OFFER DETAILS (LOCAL TRACKING)\n{'='*80}{W}")
+    print(f"\n{C}{'='*80}\n           SEND OFFER DETAILS (Local Images & Tracking)\n{'='*80}{W}")
     
     candidates = sender.fetch_pending_candidates()
     
     if not candidates:
-        print(f"\n{G}✅ No NEW 'Hired' candidates.{W}"); return
+        print(f"\n{G}✅ No NEW 'Hired' candidates to email.{W}")
+        return
     
-    print(f"\n{B}--- Found {len(candidates)} Pending ---{W}")
+    print(f"\n{Y}🔍 Found {len(candidates)} new Hired candidate(s).{W}")
     
     for c in candidates:
         name = c['Name']
         email = c['Email']
         print(f"\n{B}Candidate:{W} {name} | {email}")
-        print(f"{G}1. Send{W} | {Y}2. Skip{W} | {R}3. Exit{W}")
-        choice = input("👉 Action: ").strip()
         
-        if choice == '1':
-            print(f"{Y}📤 Sending...{W}", end=" ")
-            if sender.send_single_email(name, email):
-                sender.save_history(email)
-                print(f"{G}✅ Sent!{W}")
-            else: print(f"{R}❌ Failed.{W}")
-        elif choice == '3': return
+        while True:
+            choice = input(f"{G}1. Send{W} | {Y}2. Skip{W} | {R}3. Exit{W}\n👉 Action: ").strip()
+            
+            if choice == '1':
+                print(f"{Y}📤 Sending...{W}", end=" ")
+                if sender.send_single_email(name, email):
+                    sender.save_history(email)
+                    print(f"{G}✅ Sent!{W}")
+                else: 
+                    print(f"{R}❌ Failed.{W}")
+                break
+            elif choice == '2':
+                print(f"{Y}⏩ Skipped.{W}")
+                break
+            elif choice == '3':
+                print("Exiting...")
+                return
 
 if __name__ == "__main__":
     main()

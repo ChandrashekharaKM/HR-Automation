@@ -1,222 +1,238 @@
 import os
-import time
 import re
-import gspread
 import smtplib
+import gspread
+import time
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
+from email.mime.image import MIMEImage
 from dotenv import load_dotenv
 from oauth2client.service_account import ServiceAccountCredentials
 
+# ANSI Color Codes
 G, R, Y, B, C, W = '\033[92m', '\033[91m', '\033[93m', '\033[94m', '\033[96m', '\033[0m'
 
 class CompletionEmailSender:
     def __init__(self):
         self.script_dir = os.path.dirname(os.path.abspath(__file__))
         load_dotenv(os.path.join(self.script_dir, "..", ".env"))
+        
         self.creds_file = os.path.join(self.script_dir, "service_account.json")
-        self.sheet_url = os.getenv("REGISTRATION_SHEET_URL")
+        self.images_dir = os.path.join(self.script_dir, "images") 
+        self.cert_folder = os.path.join(self.script_dir, "output", "certificates")
+        
+        # --- FIXED URL LOGIC ---
+        # Try specific Cert sheet first, otherwise fallback to Registration sheet
+        self.sheet_url = os.getenv("CERTIFICATE_SHEET_URL")
+        if not self.sheet_url:
+            self.sheet_url = os.getenv("REGISTRATION_SHEET_URL")
+
         self.sender_email = os.getenv("SENDER_EMAIL")
         self.sender_password = os.getenv("SENDER_PASSWORD")
         self.template_path = os.path.join(self.script_dir, "templates", "completion_email_template.html")
-        self.cert_folder = os.path.join(self.script_dir, "output", "certificates")
-        self.social_links = {
-            "web_link": os.getenv("WEBSITE_URL", "#"),
-            "ig_link": os.getenv("INSTAGRAM_URL", "#"),
-            "li_link": os.getenv("LINKEDIN_URL", "#"),
-            "google_link": os.getenv("GOOGLE_SEARCH_URL", "#"), # Required by template
-            
-            "logo_url": os.getenv("SWIPEGEN_LOGO_URL", ""),
-            "ig_icon": os.getenv("INSTAGRAM_ICON_URL", ""),
-            "li_icon": os.getenv("LINKEDIN_ICON_URL", ""),
-            "google_icon": os.getenv("GOOGLE_ICON_URL", "")     # Required by template
+        
+        self.sheet_instance = None
+        self.server = None
+
+        self.local_images = {
+            "logo_url": "logo.png",
+            "ig_icon": "instagram.png",
+            "li_icon": "linkedin.png",
+            "google_icon": "google.png"
         }
 
-    def connect_sheet(self):
+        self.social_links = {
+            "web_link": os.getenv("WEBSITE_URL", "https://www.swipegen.in"),
+            "ig_link": os.getenv("INSTAGRAM_URL", "#"),
+            "li_link": os.getenv("LINKEDIN_URL", "#"),
+            "google_link": os.getenv("GOOGLE_SEARCH_URL", "#"),
+            "logo_url": "cid:logo_url",
+            "ig_icon": "cid:ig_icon",
+            "li_icon": "cid:li_icon",
+            "google_icon": "cid:google_icon"
+        }
+
+    def connect(self):
+        print(f"{Y}⏳ Connecting to Google Sheets...{W}")
+        
+        if not self.sheet_url:
+            print(f"{R}❌ Error: No Sheet URL found in .env (Checked CERTIFICATE_SHEET_URL and REGISTRATION_SHEET_URL){W}")
+            return False
+
         try:
             scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
             creds = ServiceAccountCredentials.from_json_keyfile_name(self.creds_file, scope)
             client = gspread.authorize(creds)
-            spreadsheet = client.open_by_url(self.sheet_url)
             
-            # SMART FIX: Check for GID
+            spreadsheet = client.open_by_url(self.sheet_url)
             gid_match = re.search(r'gid=([0-9]+)', self.sheet_url)
+            
+            target_sheet = None
             if gid_match:
                 target_gid = int(gid_match.group(1))
                 for sheet in spreadsheet.worksheets():
                     if sheet.id == target_gid:
-                        return sheet
+                        target_sheet = sheet
+                        break
             
-            # Fallback
-            return spreadsheet.get_worksheet(0)
+            self.sheet_instance = target_sheet if target_sheet else spreadsheet.get_worksheet(0)
+            print(f"{G}✅ Connected to Tab: {self.sheet_instance.title}{W}")
+            return True
         except Exception as e:
-            print(f"{R}❌ Sheet Connection Error: {e}{W}")
-            return None
+            print(f"{R}❌ Connection Error: {e}{W}")
+            return False
 
-    def _get_email_from_record(self, record):
-        possible_keys = ['Email', 'Email Address', 'Email ID', 'Personal Email', 'Official Email', 'Student Email', 'Candidate Email']
-        for key in possible_keys:
-            if record.get(key): return str(record.get(key)).strip()
-        for record_key in record.keys():
-            if record_key.strip().lower() in [k.lower() for k in possible_keys] and record.get(record_key):
-                return str(record.get(record_key)).strip()
-        return None
-
-    def get_ongoing_interns(self, sheet):
+    def fetch_ready_candidates(self):
         try:
-            all_records = sheet.get_all_records()
-            ongoing = []
-            for i, record in enumerate(all_records, start=2):
-                status = str(record.get('Status', '')).strip()
-                if status.lower() == "internship ongoing":
-                    record['row_num'] = i 
-                    record['final_email'] = self._get_email_from_record(record)
-                    ongoing.append(record)
-            return ongoing
+            data = self.sheet_instance.get_all_values()
+            if not data: return []
+            
+            headers = [str(h).strip().lower() for h in data[0]]
+            
+            try:
+                status_idx = next(i for i, h in enumerate(headers) if "status" in h)
+                email_idx = next((i for i, h in enumerate(headers) if any(x in h for x in ["email", "e-mail"])), None)
+                name_idx = next((i for i, h in enumerate(headers) if any(x in h for x in ["name", "student"])), None)
+
+                if email_idx is None or name_idx is None:
+                    print(f"{R}❌ Error: Could not find 'Name' or 'Email' columns.{W}")
+                    return []
+            except Exception as e:
+                print(f"{R}❌ Header Error: {e}{W}")
+                return []
+
+            candidates = []
+            for i, row in enumerate(data[1:], 1):
+                status = row[status_idx].strip() if len(row) > status_idx else ""
+                
+                # --- FILTER: LOOK FOR 'CERTIFICATE GENERATED' ---
+                if "certificate generated" in status.lower():
+                    name = row[name_idx].strip() if len(row) > name_idx else "Candidate"
+                    email = row[email_idx].strip() if len(row) > email_idx else ""
+                    if email:
+                        candidates.append({'Name': name, 'Email': email, '_row': i+1})
+            
+            return candidates
         except Exception as e:
-            print(f"{R}❌ Error fetching records: {e}{W}")
+            print(f"{R}Error fetching rows: {e}{W}")
             return []
 
+    def attach_image(self, msg, filename, content_id):
+        file_path = os.path.join(self.images_dir, filename)
+        if not os.path.exists(file_path): return
+        try:
+            with open(file_path, 'rb') as f:
+                image = MIMEImage(f.read())
+            image.add_header('Content-ID', f'<{content_id}>') 
+            image.add_header('Content-Disposition', 'inline', filename=filename)
+            msg.attach(image)
+        except: pass
+
     def get_certificate_path(self, full_name):
-        clean_name = str(full_name).strip()
-        safe_name = "".join([c if c.isalnum() or c == '_' else "_" for c in clean_name])
+        # 1. Try exact name match first
+        safe_name = "".join([c if c.isalnum() else "_" for c in full_name.split()[0]])
         filename = f"Cert_{safe_name}.pdf"
-        return os.path.join(self.cert_folder, filename), filename
+        exact_path = os.path.join(self.cert_folder, filename)
+        
+        if os.path.exists(exact_path):
+            return exact_path, filename
+            
+        # 2. Fallback: Search folder for partial match
+        first_name = full_name.split()[0].lower()
+        for file in os.listdir(self.cert_folder):
+            if file.lower().endswith(".pdf") and first_name in file.lower():
+                 return os.path.join(self.cert_folder, file), file
+        
+        return exact_path, filename
 
     def send_email(self, candidate):
-        raw_name = candidate.get('Full Name(as per Aadhar/PAN)') or candidate.get('Name') or "Candidate"
-        name = str(raw_name).strip()
-        to_email = candidate.get('final_email')
+        name = candidate['Name']
+        email = candidate['Email']
         
-        if not to_email:
-            print(f"{R}   ⚠️  Skipping: No email found for {name}{W}")
-            return False
-
         cert_path, cert_filename = self.get_certificate_path(name)
         if not os.path.exists(cert_path):
-            print(f"{R}   ❌ Missing Certificate: {cert_filename}{W}")
-            print(f"{Y}      (Please check output/certificates folder or run Option 8){W}")
+            print(f"{R}   ❌ Certificate PDF missing for {name}{W}")
             return False
 
         try:
+            msg = MIMEMultipart('related')
+            msg['From'] = self.sender_email
+            msg['To'] = email
+            msg['Subject'] = "Congratulations on your Completion! - SwipeGen"
+
             with open(self.template_path, 'r', encoding='utf-8') as f:
                 body_html = f.read()
             
             body_html = body_html.replace("{name}", name)
             for key, value in self.social_links.items():
                 body_html = body_html.replace(f"{{{key}}}", value)
-
-            msg = MIMEMultipart()
-            msg['From'] = self.sender_email
-            msg['To'] = to_email
-            msg['Subject'] = "Congratulations on your Completion! - SwipeGen"
+            
             msg.attach(MIMEText(body_html, 'html'))
+
+            for cid_name, filename in self.local_images.items():
+                self.attach_image(msg, filename, cid_name)
 
             with open(cert_path, "rb") as f:
                 attach = MIMEApplication(f.read(), _subtype="pdf")
                 attach.add_header('Content-Disposition', 'attachment', filename=cert_filename)
                 msg.attach(attach)
 
-            server = smtplib.SMTP('smtp.gmail.com', 587)
-            server.starttls()
-            server.login(self.sender_email, self.sender_password)
-            server.send_message(msg)
-            server.quit()
+            self.server.send_message(msg)
             return True
         except Exception as e:
-            print(f"{R}   ❌ Email Failed for {name}: {e}{W}")
+            print(f"{R}   ❌ Email Failed: {e}{W}")
             return False
 
-    def update_status(self, sheet, row_num):
+    def update_status(self, row_num):
         try:
-            headers = sheet.row_values(1)
-            try:
-                col_index = headers.index("Status") + 1
-            except ValueError:
-                print(f"{R}   ❌ 'Status' column not found.{W}")
-                return False
-            sheet.update_cell(row_num, col_index, "Internship Completed")
+            headers = self.sheet_instance.row_values(1)
+            status_col = next(i for i, h in enumerate(headers, 1) if "status" in str(h).lower())
+            self.sheet_instance.update_cell(row_num, status_col, "Internship Completed")
             return True
-        except Exception as e:
-            print(f"{R}   ❌ Status Update Failed (Row {row_num}): {e}{W}")
-            return False
+        except: return False
 
     def run(self):
-        print(f"\n{B}📧 SwipeGen Completion Email Automation{W}")
-        print(f"{C}{'='*40}{W}")
-        sheet = self.connect_sheet()
-        if not sheet: return
-
-        print(f"{Y}⏳ Fetching 'Internship Ongoing' candidates...{W}")
-        candidates = self.get_ongoing_interns(sheet)
-
+        if not self.connect(): return
+        
+        candidates = self.fetch_ready_candidates()
         if not candidates:
-            print(f"{G}✨ No ongoing internships found.{W}")
+            print(f"\n{G}✅ No 'Certificate Generated' candidates waiting.{W}")
             return
 
-        print(f"\n{G}found {len(candidates)} active interns:{W}")
-        print(f"{'No.':<5} {'Name':<30} {'Certificate Status':<30}")
-        print("-" * 65)
+        print(f"\n{B}📧 --- Completion Email Sender ---{W}")
+        print(f"{Y}🔍 Found {len(candidates)} ready to receive certificates.{W}")
         
-        for idx, c in enumerate(candidates, 1):
-            raw_name = c.get('Full Name(as per Aadhar/PAN)') or c.get('Name') or "Unknown"
-            name = str(raw_name).strip()
-            cert_path, _ = self.get_certificate_path(name)
-            cert_status = f"{G}Found{W}" if os.path.exists(cert_path) else f"{R}Missing{W}"
-            print(f"{idx:<5} {name[:28]:<30} {cert_status:<30}")
-
-        print("-" * 65)
-        print(f"\n{Y}Options:{W}")
-        print("1. Update ALL candidates (Only those with certificates)")
-        print("2. Update SELECTED candidates")
-        print("3. Exit")
-        
-        choice = input(f"\n👉 {B}Enter choice: {W}").strip()
-        targets = []
-        if choice == '1':
-            targets = candidates
-        elif choice == '2':
-            selection = input(f"👉 Enter numbers (comma separated): ").strip()
-            try:
-                indices = [int(x.strip()) - 1 for x in selection.split(',') if x.strip().isdigit()]
-                for i in indices:
-                    if 0 <= i < len(candidates):
-                        targets.append(candidates[i])
-            except:
-                print(f"{R}❌ Invalid selection.{W}")
-                return
-        else:
+        try:
+            self.server = smtplib.SMTP('smtp.gmail.com', 587)
+            self.server.starttls()
+            self.server.login(self.sender_email, self.sender_password)
+        except Exception as e:
+            print(f"{R}❌ SMTP Login Failed: {e}{W}")
             return
 
-        print(f"\n{Y}🚀 Processing {len(targets)} candidates...{W}\n")
-        success_count = 0
-        for person in targets:
-            raw_name = person.get('Full Name(as per Aadhar/PAN)') or person.get('Name')
-            name = str(raw_name).strip()
-            print(f"{C}Processing: {name}...{W}", end=" ")
+        for c in candidates:
+            print(f"\n{B}Candidate: {Y}{c['Name']}{W} ({c['Email']})")
+            choice = input(f"{G}1. Send{W} | {Y}2. Skip{W} | {R}3. Exit{W}\n👉 Action: ").strip()
             
-            if self.send_email(person):
-                print(f"{G}[Email Sent + Cert Attached]{W}", end=" ")
-                if self.update_status(sheet, person['row_num']):
-                    print(f"{G}[Status Updated]{W}")
-                    success_count += 1
+            if choice == '1':
+                print(f"{Y}📤 Sending...{W}", end=" ")
+                if self.send_email(c):
+                    print(f"{G}✅ Sent!{W}", end=" ")
+                    if self.update_status(c['_row']):
+                        print(f"{G}(Status Updated -> 'Internship Completed'){W}")
+                    else:
+                        print(f"{R}(Status Update Failed){W}")
                 else:
-                    print(f"{R}[Status Failed]{W}")
-            else:
-                print(f"{R}[Failed]{W}")
-            time.sleep(1.5)
+                    print(f"{R}❌ Failed.{W}")
+            elif choice == '2': continue
+            elif choice == '3': break
+        
+        self.server.quit()
+        print(f"\n{G}Task Finished.{W}")
 
-        print(f"\n{G}✨ Done! {success_count}/{len(targets)} processed.{W}")
-        input(f"{C}Press Enter to exit...{W}")
-
-# ✅ Added main wrapper function
 def main():
-    try:
-        sender = CompletionEmailSender()
-        sender.run()
-    except Exception as e:
-        print(f"{R}Unexpected Error in Option 9: {e}{W}")
+    CompletionEmailSender().run()
 
 if __name__ == "__main__":
     main()
