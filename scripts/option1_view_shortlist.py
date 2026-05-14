@@ -49,15 +49,32 @@ class ShortlistManager:
         return chr(65 + idx)
 
     def fetch_pending(self):
-        # CSV Export method works with GID directly
-        csv_url = f"https://docs.google.com/spreadsheets/d/{self.spreadsheet_id}/export?format=csv&gid={self.gid}"
         try:
-            res = requests.get(csv_url)
-            res.raise_for_status()
-            reader = csv.DictReader(StringIO(res.text))
-            return [dict(row, _row=i+2) for i, row in enumerate(reader) if not row.get('Status', '').strip()]
+            result = self.sheet_api.values().get(
+                spreadsheetId=self.spreadsheet_id,
+                range=self.sheet_name
+            ).execute()
+            
+            values = result.get('values', [])
+            if not values:
+                return []
+                
+            headers = values[0]
+            pending_candidates = []
+            
+            for i, row in enumerate(values[1:]):
+                # Google Sheets API might omit trailing empty cells
+                padded_row = row + [''] * (len(headers) - len(row))
+                row_dict = dict(zip(headers, padded_row))
+                
+                # Check status
+                if not row_dict.get('Status', '').strip():
+                    row_dict['_row'] = i + 2
+                    pending_candidates.append(row_dict)
+                    
+            return pending_candidates
         except Exception as e:
-            print(f"{R}❌ Error fetching CSV: {e}{W}")
+            print(f"{R}❌ Error fetching data: {e}{W}")
             return []
 
     def update_sheet(self, row_num, val):

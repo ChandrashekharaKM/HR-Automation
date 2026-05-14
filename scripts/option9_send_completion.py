@@ -129,10 +129,11 @@ class CompletionEmailSender:
             msg.attach(image)
         except: pass
 
-    def get_certificate_path(self, full_name):
+    def get_certificate_path(self, full_name, email):
         # 1. Try exact name match first
         safe_name = "".join([c if c.isalnum() else "_" for c in full_name.split()[0]])
-        filename = f"Cert_{safe_name}.pdf"
+        email_prefix = email.split('@')[0] if email else "no_email"
+        filename = f"Cert_{safe_name}_{email_prefix}.pdf"
         exact_path = os.path.join(self.cert_folder, filename)
         
         if os.path.exists(exact_path):
@@ -150,7 +151,7 @@ class CompletionEmailSender:
         name = candidate['Name']
         email = candidate['Email']
         
-        cert_path, cert_filename = self.get_certificate_path(name)
+        cert_path, cert_filename = self.get_certificate_path(name, email)
         if not os.path.exists(cert_path):
             print(f"{R}   ❌ Certificate PDF missing for {name}{W}")
             return False

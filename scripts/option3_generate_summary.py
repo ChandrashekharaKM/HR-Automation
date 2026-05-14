@@ -80,7 +80,9 @@ class RecruitmentSummarizer:
             'applied': len(reg_records),
             'only_shortlisted': 0,  # Specifically "Resume Shortlisted" status
             'not_shortlisted': 0,
+            'invited': 0,
             'accepted_invite': 0,
+            'declined_invite': 0,
             'hired': 0,
             'rejected': 0
         }
@@ -91,7 +93,7 @@ class RecruitmentSummarizer:
             current_status = str(row.get('Status', '')).strip()
 
             # Sync Logic
-            if current_status not in ["Hired", "Rejected"]:
+            if current_status not in ["Hired", "Offer Letter Generated", "Internship Ongoing", "Certificate Generated", "Internship Completed", "Rejected"]:
                 full_email, username = self.normalize_email(email)
                 user_choice = interview_map.get(full_email) or interview_map.get(username)
                 
@@ -113,11 +115,17 @@ class RecruitmentSummarizer:
             
             if "Not Shortlisted" in current_status:
                 stats['not_shortlisted'] += 1
+                
+            if "Invited for Interview" in current_status:
+                stats['invited'] += 1
             
             if "Interview Accepted" in current_status:
                 stats['accepted_invite'] += 1
+                
+            if "Interview Declined" in current_status:
+                stats['declined_invite'] += 1
 
-            if "Hired" in current_status:
+            if current_status in ["Hired", "Offer Letter Generated", "Internship Ongoing", "Certificate Generated", "Internship Completed"]:
                 stats['hired'] += 1
 
             if "Rejected" in current_status:
@@ -129,7 +137,10 @@ class RecruitmentSummarizer:
         print(f"{ 'Candidates Resume Shortlisted':<40} | {Y}{stats['only_shortlisted']:<10}{W}")
         print(f"{ 'Candidates Not Shortlisted':<40} | {R}{stats['not_shortlisted']:<10}{W}")
         print("-" * 65)
+        print(f"{ 'Invited for Interview':<40} | {C}{stats['invited']:<10}{W}")
         print(f"{ 'Interview Invites Accepted':<40} | {G}{stats['accepted_invite']:<10}{W}")
+        print(f"{ 'Interview Invites Declined':<40} | {R}{stats['declined_invite']:<10}{W}")
+        print("-" * 65)
         print(f"{ 'Final Candidates Hired':<40} | {G}{stats['hired']:<10}{W}")
         print(f"{ 'Final Candidates Rejected':<40} | {R}{stats['rejected']:<10}{W}")
         print(f"{B}{'='*65}{W}\n")

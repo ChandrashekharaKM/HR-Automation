@@ -210,7 +210,9 @@ class CertificateGenerator:
         self.nuclear_replace(doc, replacements)
         
         safe_name = "".join([c if c.isalnum() else "_" for c in first_name])
-        filename_base = f"Cert_{safe_name}"
+        email = self.get_val(student, ["Email address", "Email", "E-mail"])
+        email_prefix = email.split('@')[0] if email else "no_email"
+        filename_base = f"Cert_{safe_name}_{email_prefix}"
         
         docx_path = os.path.abspath(os.path.join(self.output_dir, f"{filename_base}.docx"))
         pdf_path = os.path.abspath(os.path.join(self.output_dir, f"{filename_base}.pdf"))
@@ -258,6 +260,13 @@ class CertificateGenerator:
             
             print(f"\n{C}{'-'*60}{W}")
             print(f"👤 Candidate [{idx}/{len(ongoing_interns)}]: {B}{name}{W}")
+            
+            action = input(f"Generate? (y/n/exit): ").strip().lower()
+            if action == 'exit':
+                print(f"{Y}Exiting generator...{W}")
+                break
+            if action != 'y':
+                continue
             
             # --- START DATE ---
             final_start = sheet_start

@@ -98,11 +98,8 @@ class OfferEmailSender:
         
         # 1. Locate PDF
         safe_name = "".join([c if c.isalnum() or c == '_' else "_" for c in full_name])
-        if candidate_id:
-            safe_id = "".join([c if c.isalnum() else "" for c in candidate_id])
-            pdf_filename = f"Offer_{safe_name}_{safe_id}.pdf"
-        else:
-            pdf_filename = f"Offer_{safe_name}.pdf"
+        email_prefix = recipient_email.split('@')[0] if recipient_email else "no_email"
+        pdf_filename = f"Offer_{safe_name}_{email_prefix}.pdf"
             
         pdf_path = os.path.join(self.offer_dir, pdf_filename)
         
@@ -165,18 +162,19 @@ class OfferEmailSender:
         if not self.connect(): return
         records = self.fetch_data_safely()
         
-        # --- FIXED FILTER: LOOK FOR "HIRED" ---
-        ready_list = [r for r in records if str(r.get("Status", "")).strip() == "Hired"]
+        # --- FILTER: LOOK FOR "Offer Letter Generated" ---
+        ready_list = [r for r in records if str(r.get("Status", "")).strip() == "Offer Letter Generated"]
 
         if not ready_list:
-            print(f"{Y}⚠️ No candidates marked 'Hired' found.{W}")
+            print(f"{Y}⚠️ No candidates marked 'Offer Letter Generated' found.{W}")
             return
 
-        print(f"\n{B}--- Found {len(ready_list)} Hired candidates ---{W}")
+        print(f"\n{B}--- Found {len(ready_list)} candidates ready for Offer Letters ---{W}")
 
         for candidate in ready_list:
             name = candidate.get("First Name") or candidate.get("Name") or "Candidate"
-            #email = candidate.get("Email") or "No Email"
+            # Get the email from the candidate dictionary so the variable is defined
+            email = candidate.get("Email address") or candidate.get("Email") or "No Email"
             
             print(f"\n{B}Candidate: {Y}{name}{W} ({email})")
             choice = input(f"{G}1. Send{W} | {Y}2. Skip{W} | {R}3. Exit{W}\n👉 Action: ").strip()
@@ -184,10 +182,15 @@ class OfferEmailSender:
             if choice == '1':
                 m_role = "Software Developer - Intern"
                 
-                # Fetch Start Date or Default to Today
-                sheet_start = candidate.get("Start Date") or candidate.get("Joining Date")
+                # Fetch Start Date securely across variations of column names
+                sheet_start = next((v for k, v in candidate.items() if "start" in k.lower() and "date" in k.lower() and str(v).strip()), None)
                 if not sheet_start:
+                    sheet_start = candidate.get("Joining Date") or candidate.get("Start_Date")
+                    
+                if not sheet_start or not str(sheet_start).strip():
                     sheet_start = datetime.now().strftime("%B %d, %Y")
+                else:
+                    sheet_start = str(sheet_start).strip()
                 
                 print(f"{Y}📤 Sending...{W}", end=" ")
                 if self.send_offer_email(candidate, {'role': m_role, 'start_date': sheet_start}):

@@ -116,6 +116,17 @@ class OfferLetterGenerator:
         except Exception as e:
             print(f"{R}⚠️  Sheet update failed: {e}{W}")
 
+    def update_sheet_status(self, row_idx, new_status):
+        try:
+            headers = self.sheet_instance.row_values(1)
+            col_idx = next((i for i, h in enumerate(headers, 1) if "status" in str(h).lower()), None)
+            if col_idx:
+                self.sheet_instance.update_cell(row_idx, col_idx, new_status)
+            else:
+                print(f"{Y}⚠️  Could not find 'Status' column to update.{W}")
+        except Exception as e:
+            print(f"{R}⚠️  Status update failed: {e}{W}")
+
     def replace_placeholders(self, doc, data):
         for paragraph in doc.paragraphs:
             if self._contains_placeholder(paragraph.text, data):
@@ -172,13 +183,13 @@ class OfferLetterGenerator:
         
         safe_name = "".join([c if c.isalnum() or c == '_' else "_" for c in full_name])
         
-        if candidate_id:
-            safe_id = "".join([c if c.isalnum() or c == '_' else "" for c in candidate_id])
-            pdf_filename = f"Offer_{safe_name}_{safe_id}.pdf"
-        else:
-            pdf_filename = f"Offer_{safe_name}.pdf"
+        email = self._smart_get_value(candidate, ["email"])
+        email_prefix = email.split('@')[0] if email else "no_email"
+        
+        pdf_filename = f"Offer_{safe_name}_{email_prefix}.pdf"
+        docx_filename = f"Offer_{safe_name}_{email_prefix}.docx"
 
-        docx_path = os.path.join(self.output_dir, f"Offer_{safe_name}.docx")
+        docx_path = os.path.join(self.output_dir, docx_filename)
         pdf_path = os.path.join(self.output_dir, pdf_filename)
         
         doc.save(docx_path)
@@ -255,6 +266,8 @@ class OfferLetterGenerator:
                 
                 if output_path and file_name and output_path.endswith('.pdf'):
                     self.upload_to_drive(output_path, file_name)
+                    self.update_sheet_status(idx + 2, "Offer Letter Generated")
+                    print(f"{G}✅ Status updated to 'Offer Letter Generated'{W}")
 
             except Exception as e:
                 print(f"{R}❌ Failed: {e}{W}")

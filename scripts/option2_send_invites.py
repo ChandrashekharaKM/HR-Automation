@@ -97,14 +97,15 @@ class InterviewInviter:
             print(f"{R}❌ Fetch Error: {e}{W}"); return []
 
     def display_candidates(self, candidates, title):
-        print(f"\n{C}{'='*80}\n {title} ({len(candidates)})\n{'='*80}{W}")
-        print(f"{ 'SL No.':<8} | {'Email':<30} | {'Resume Link'}")
-        print("-" * 80)
+        print(f"\n{C}{'='*105}\n {title} ({len(candidates)})\n{'='*105}{W}")
+        print(f"{ 'SL No.':<8} | {'Name':<15} | {'Email':<30} | {'Resume Link'}")
+        print("-" * 105)
         for i, c in enumerate(candidates, 1):
+            name = c.get('First Name') or c.get('Name') or "N/A"
             email = c.get('Email address') or c.get('Email') or "N/A"
             resume = c.get('Resume Link') or c.get('Resume') or "N/A"
-            print(f"{i:<8} | {email:<30} | {C}{resume}{W}")
-        print("-" * 80)
+            print(f"{i:<8} | {name:<15} | {email:<30} | {C}{resume}{W}")
+        print("-" * 105)
 
     def attach_image(self, msg, filename, content_id):
         """Helper to attach local image with Content-ID"""
