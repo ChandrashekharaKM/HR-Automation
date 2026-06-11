@@ -1,14 +1,19 @@
+import io
 import os
 import re
 import gspread
 import time
 import pickle # Added for Drive Auth
+import uuid
 import win32com.client
 from docx import Document
+from docx.shared import Inches
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 from datetime import datetime
 from dotenv import load_dotenv
 from oauth2client.service_account import ServiceAccountCredentials
 from lxml import etree
+import qrcode
 
 # --- Google Drive API Imports ---
 from googleapiclient.discovery import build
@@ -153,6 +158,22 @@ class CertificateGenerator:
             print(f"{R}   ⚠️  Failed to update dates in sheet: {e}{W}")
             return False
 
+    def update_sheet_field(self, row_idx, field_aliases, value):
+        try:
+            headers = self.sheet_instance.row_values(1)
+            field_lower = [alias.strip().lower() for alias in field_aliases]
+            col_idx = next(
+                (i for i, h in enumerate(headers, 1) if str(h).strip().lower() in field_lower),
+                None
+            )
+            if col_idx:
+                self.sheet_instance.update_cell(row_idx, col_idx, value)
+                return True
+            return False
+        except Exception as e:
+            print(f"{R}   ⚠️  Failed to update sheet field '{field_aliases[0]}': {e}{W}")
+            return False
+
     def clean_xml_tags(self, xml_str):
         xml_str = re.sub(r'<w:proofErr[^>]*>', '', xml_str)
         xml_str = re.sub(r'<w:gramE[^>]*>', '', xml_str)
@@ -173,6 +194,89 @@ class CertificateGenerator:
         if xml_str != original_xml:
             new_body = etree.fromstring(xml_str)
             doc.element.replace(xml_body, new_body)
+
+    def generate_certificate_id(self, first_name, last_name, email):
+        prefix = os.getenv('CERTIFICATE_PREFIX', 'CERT')
+        date_code = datetime.now().strftime('%Y%m%d')
+        identifier = email.split('@')[0] if email else (first_name or 'STUDENT')
+        identifier = ''.join(ch for ch in identifier.upper() if ch.isalnum())[:16]
+        unique = str(uuid.uuid4()).split('-')[0].upper()
+        return f"{prefix}-{date_code}-{identifier}-{unique}"
+
+    def build_qr_contents(self, student, common_data):
+        full_name = self.get_val(student, ["First Name", "First_Name", "Name", "Student Name"])
+        certificate_id = common_data.get('certificate_id', '')
+        company_name = common_data.get('company_name', 'SwipeGen')
+        return (
+            f"Name: {full_name}\n"
+            f"Certificate ID: {certificate_id}\n"
+            f"Company Name: {company_name}"
+        )
+
+    def generate_qr_image(self, data):
+        qr = qrcode.QRCode(
+            version=None,
+            error_correction=qrcode.constants.ERROR_CORRECT_Q,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(data)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white").convert("RGB")
+        buffer = io.BytesIO()
+        img.save(buffer, format='PNG')
+        buffer.seek(0)
+        return buffer
+
+    def embed_qr_into_doc(self, doc, qr_stream, certificate_id=None):
+        from docx.text.paragraph import Paragraph
+
+        placeholder = "{QR_CODE}"
+        found = False
+        caption_text = None
+        if certificate_id:
+            caption_text = certificate_id.split('-')[-1]
+
+        # Replace the placeholder in normal paragraphs
+        for paragraph in doc.paragraphs:
+            if placeholder in paragraph.text:
+                paragraph.text = ""
+                run = paragraph.add_run()
+                qr_stream.seek(0)
+                run.add_picture(qr_stream, width=Inches(1.2), height=Inches(1.2))
+                if caption_text:
+                    run.add_break()
+                    run.add_text(caption_text)
+                found = True
+
+        # Replace the placeholder inside textboxes / drawing shapes
+        for p_elem in doc.element.body.xpath('.//*[local-name()="txbxContent"]//*[local-name()="p"]'):
+            text = ''.join(node.text or '' for node in p_elem.xpath('.//*[local-name()="t"]'))
+            if placeholder in text:
+                p = Paragraph(p_elem, doc)
+                p.text = ""
+                run = p.add_run()
+                qr_stream.seek(0)
+                run.add_picture(qr_stream, width=Inches(1.2), height=Inches(1.2))
+                if caption_text:
+                    run.add_break()
+                    run.add_text(caption_text)
+                found = True
+
+        if not found:
+            paragraph = doc.add_paragraph()
+            paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            run = paragraph.add_run()
+            qr_stream.seek(0)
+            run.add_picture(qr_stream, width=Inches(1.2), height=Inches(1.2))
+            if caption_text:
+                run.add_break()
+                run.add_text(caption_text)
+            caption = doc.add_paragraph()
+            caption.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            caption.add_run("Scan to verify this certificate").italic = True
+
+        return found
 
     def convert_to_pdf(self, docx_path, pdf_path):
         try:
@@ -205,14 +309,30 @@ class CertificateGenerator:
             "{ROLE}": common_data['role'],
             "{CURRENT_DATE}": common_data['issue_date']
         }
-
-        doc = Document(self.template_path)
-        self.nuclear_replace(doc, replacements)
         
         safe_name = "".join([c if c.isalnum() else "_" for c in first_name])
         email = self.get_val(student, ["Email address", "Email", "E-mail"])
         email_prefix = email.split('@')[0] if email else "no_email"
         filename_base = f"Cert_{safe_name}_{email_prefix}"
+        certificate_id = self.generate_certificate_id(first_name, last_name, email)
+        company_name = os.getenv('COMPANY_NAME', 'SwipeGen')
+
+        replacements["{CERTIFICATE_ID}"] = certificate_id
+        replacements["{Certificate_ID}"] = certificate_id
+        replacements["{COMPANY_NAME}"] = company_name
+        replacements["{Company_Name}"] = company_name
+        replacements["{Company Name}"] = company_name
+        replacements["{COMPANY}"] = company_name
+        replacements["{Company}"] = company_name
+
+        doc = Document(self.template_path)
+        self.nuclear_replace(doc, replacements)
+        
+        common_data['certificate_id'] = certificate_id
+        common_data['company_name'] = company_name
+        qr_data = self.build_qr_contents(student, common_data)
+        qr_stream = self.generate_qr_image(qr_data)
+        self.embed_qr_into_doc(doc, qr_stream, certificate_id)
         
         docx_path = os.path.abspath(os.path.join(self.output_dir, f"{filename_base}.docx"))
         pdf_path = os.path.abspath(os.path.join(self.output_dir, f"{filename_base}.pdf"))
@@ -229,7 +349,7 @@ class CertificateGenerator:
                 print(f"{R}❌ Save Failed: {e}{W}")
                 return None, None
 
-        return docx_path, pdf_path
+        return docx_path, pdf_path, certificate_id
 
     def run(self):
         if not self.connect(): return
@@ -295,7 +415,7 @@ class CertificateGenerator:
 
             # --- GENERATE ---
             print(f"{Y}⚙️  Generating...{W}", end=" ")
-            docx, pdf = self.generate_docx(student, {'start': final_start, 'end': final_end}, common_data)
+            docx, pdf, certificate_id = self.generate_docx(student, {'start': final_start, 'end': final_end}, common_data)
             
             if docx and pdf:
                 if self.convert_to_pdf(docx, pdf):
@@ -305,6 +425,12 @@ class CertificateGenerator:
                     if os.path.exists(pdf):
                         self.upload_to_drive(pdf, os.path.basename(pdf))
                     # --------------------
+
+                    # Update sheet with certificate ID
+                    if self.update_sheet_field(row_num, ["Certificate ID", "Certificate_ID", "CERTIFICATE_ID"], certificate_id):
+                        print(f"   📝 Certificate ID updated in sheet -> {certificate_id}")
+                    else:
+                        print(f"   {Y}⚠️ Could not find a certificate ID column in sheet. Add a header like 'Certificate ID'.{W}")
 
                     # Update status to 'Certificate Generated'
                     if self.update_status(row_num, "Certificate Generated"):
