@@ -307,7 +307,11 @@ class CertificateGenerator:
             "{FROM}": dates['start'],
             "{TO}": dates['end'],
             "{ROLE}": common_data['role'],
-            "{CURRENT_DATE}": common_data['issue_date']
+            "{DATE}": common_data['issue_date'],
+            "{date}": common_data['issue_date'],
+            "{ISSUE_DATE}": common_data['issue_date'],
+            "{Issue_Date}": common_data['issue_date'],
+            "{issue_date}": common_data['issue_date']
         }
         
         safe_name = "".join([c if c.isalnum() else "_" for c in first_name])
