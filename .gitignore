@@ -152,5 +152,5 @@ Thumbs.db
 output/certificates/*.pdf
 output/offer_letters/*.pdf
 sent_history.json.bak
-*.tmpscripts/client_secret.json
+scripts/client_secret.json
 scripts/token.json

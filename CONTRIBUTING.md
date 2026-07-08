@@ -1,10 +1,10 @@
-# Contributing to SwipeGen HR Automation
+# Contributing to HR-Automation
 
-Thank you for your interest in contributing to the SwipeGen HR Automation project!
+Thank you for your interest in contributing to the HR-Automation project!
 
 ## 📋 Code of Conduct
 
-Please maintain professional and respectful communication. This project is confidential and proprietary.
+Please maintain professional and respectful communication. This project is confidential and proprietary. All administrative authority belongs to the project owner.
 
 ## 🚀 Getting Started
 
@@ -20,8 +20,8 @@ Please maintain professional and respectful communication. This project is confi
 1. **Fork and clone the repository**
 
    ```bash
-   git clone https://github.com/NamanSinha786/SwipeGen_Automations.git
-   cd SwipeGen-Automation
+   git clone https://github.com/NamanSinha786/HR-Automation_Automations.git
+   cd HR-Automation
    ```
 2. **Create a feature branch**
 
@@ -190,4 +190,4 @@ By contributing to this project, you agree that your contributions are licensed 
 
 ---
 
-Thank you for contributing to SwipeGen HR Automation! 🎉
+Thank you for contributing to HR-Automation! 🎉

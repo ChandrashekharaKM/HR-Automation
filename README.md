@@ -1,10 +1,13 @@
-# 🚀 SwipeGen HR Automation System
+# 🚀 HR-Automation System
 
 A comprehensive HR automation system designed to streamline the entire recruitment and internship workflow—from candidate shortlisting to completion certificate generation.
 
 ## 📋 Overview
 
-SwipeGen HR Automation is a Python-based automation tool that automates critical HR processes including:
+HR-Automation is a Python-based automation tool that automates critical HR processes including:
+
+## 🔐 Ownership and Authority
+All administrative authority and ownership of this project are assigned to the project owner. This workspace is managed by the owner for HR-Automation operations.
 - Candidate shortlisting and registration management
 - Interview invitation distribution
 - Recruitment summary reporting
@@ -43,7 +46,7 @@ SwipeGen HR Automation is a Python-based automation tool that automates critical
 ## 📁 Project Structure
 
 ```
-SwipeGen-Automation/
+HR-Automation/
 ├── README.md                          # Project documentation
 ├── config.json                        # Configuration settings
 ├── requirements.txt                   # Python dependencies
@@ -87,8 +90,8 @@ SwipeGen-Automation/
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/NamanSinha786/SwipeGen_Automations.git
-   cd SwipeGen-Automation
+   git clone <your-repository-url>
+   cd HR-Automation
    ```
 
 2. **Install dependencies:**
@@ -198,13 +201,17 @@ For contributions or improvements:
 4. Test thoroughly
 5. Submit a pull request
 
+## 📜 License
+
+This project is licensed under the MIT License.
+
 ## 📝 License
 
 This project is proprietary and confidential.
 
-## 👥 Authors
+## 👥 Ownership
 
-- **Naman Sinha** - Project Lead
+This project is owned and managed by the project owner.
 
 ## 📞 Support
 

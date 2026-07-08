@@ -1,4 +1,4 @@
-# Setup Guide for SwipeGen HR Automation
+# Setup Guide for HR-Automation
 
 ## 📋 Prerequisites
 
@@ -14,8 +14,8 @@ Before you begin, ensure you have:
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/NamanSinha786/SwipeGen_Automations.git
-cd SwipeGen-Automation
+git clone https://github.com/NamanSinha786/HR-Automation_Automations.git
+cd HR-Automation
 ```
 
 ### 2. Create a Virtual Environment (Recommended)
@@ -38,7 +38,7 @@ pip install -r requirements.txt
 
 #### Create Google Cloud Project
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project named "SwipeGen Automation"
+2. Create a new project named "HR-Automation Automation"
 3. Enable the following APIs:
    - Google Sheets API
    - Google Drive API
