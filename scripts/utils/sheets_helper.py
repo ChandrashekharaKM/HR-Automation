@@ -1,7 +1,7 @@
 """
 utils/sheets_helper.py
 ----------------------
-Shared Google Sheets connection helper for SwipeGen HR Automation System.
+Shared Google Sheets connection helper for HR-Automation System.
 
 Eliminates the ~15-line boilerplate connection block that was previously
 copy-pasted across all 9 option scripts.

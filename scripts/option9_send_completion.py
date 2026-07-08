@@ -43,7 +43,7 @@ class CompletionEmailSender:
         }
 
         self.social_links = {
-            "web_link": os.getenv("WEBSITE_URL", "https://www.swipegen.in"),
+            "web_link": os.getenv("WEBSITE_URL", "https://www.hr-automation.in"),
             "ig_link": os.getenv("INSTAGRAM_URL", "#"),
             "li_link": os.getenv("LINKEDIN_URL", "#"),
             "google_link": os.getenv("GOOGLE_SEARCH_URL", "#"),
@@ -160,7 +160,7 @@ class CompletionEmailSender:
             msg = MIMEMultipart('related')
             msg['From'] = self.sender_email
             msg['To'] = email
-            msg['Subject'] = "Congratulations on your Completion! - SwipeGen"
+            msg['Subject'] = "Congratulations on your Completion! - HR-Automation"
 
             with open(self.template_path, 'r', encoding='utf-8') as f:
                 body_html = f.read()

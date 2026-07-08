@@ -13,12 +13,12 @@ if SCRIPTS_DIR not in sys.path:
     # If not, insert it at the beginning of the system path
     sys.path.insert(0, SCRIPTS_DIR)
 
-# Define the main menu class for the SwipeGen HR Automation System
-class SwipeGenMainMenu:
+# Define the main menu class for the HR-Automation System
+class HRAutomationMainMenu:
     # Method to display the banner
     def display_banner(self):
         print("\n" + "="*75)
-        print("           🚀 SWIPEGEN HR AUTOMATION SYSTEM - FULL WORKFLOW")
+        print("           🚀 HR-AUTOMATION SYSTEM - FULL WORKFLOW")
         print("="*75)
 
     # Method to display the menu options
@@ -100,7 +100,7 @@ class SwipeGenMainMenu:
             
             # Check if the user wants to exit
             if choice == "0":
-                print("\n👋 Thank you for using SwipeGen HR System!")
+                print("\n👋 Thank you for using HR-Automation System!")
                 break
             
             # Run the selected option
@@ -114,5 +114,5 @@ if __name__ == "__main__":
     from dotenv import load_dotenv
     load_dotenv()
     
-    # Create an instance of the SwipeGenMainMenu class and run it
-    SwipeGenMainMenu().run()
+    # Create an instance of the HRAutomationMainMenu class and run it
+    HRAutomationMainMenu().run()

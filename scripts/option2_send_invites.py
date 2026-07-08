@@ -153,7 +153,7 @@ class InterviewInviter:
                 msg = MIMEMultipart('related')
                 msg['From'] = self.sender_email
                 msg['To'] = email
-                msg['Subject'] = "SwipeGen - Interview Confirmation"
+                msg['Subject'] = "HR-Automation - Interview Confirmation"
 
                 # 2. Attach HTML Body
                 html_content = self._get_template(name)
@@ -186,7 +186,7 @@ def main():
     if not inviter.connect(): return
     
     while True:
-        print(f"\n{B}--- SWIPEGEN INTERVIEW INVITER (Local Images) ---{W}")
+        print(f"\n{B}--- HR-AUTOMATION INTERVIEW INVITER (Local Images) ---{W}")
         print(f"1. Send Invites (Shortlisted)")
         print(f"2. View Rejected")
         print(f"3. Exit")

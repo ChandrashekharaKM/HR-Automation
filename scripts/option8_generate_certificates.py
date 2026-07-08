@@ -206,7 +206,7 @@ class CertificateGenerator:
     def build_qr_contents(self, student, common_data):
         full_name = self.get_val(student, ["First Name", "First_Name", "Name", "Student Name"])
         certificate_id = common_data.get('certificate_id', '')
-        company_name = common_data.get('company_name', 'SwipeGen')
+        company_name = common_data.get('company_name', 'HR-Automation')
         return (
             f"Name: {full_name}\n"
             f"Certificate ID: {certificate_id}\n"
@@ -319,7 +319,7 @@ class CertificateGenerator:
         email_prefix = email.split('@')[0] if email else "no_email"
         filename_base = f"Cert_{safe_name}_{email_prefix}"
         certificate_id = self.generate_certificate_id(first_name, last_name, email)
-        company_name = os.getenv('COMPANY_NAME', 'SwipeGen')
+        company_name = os.getenv('COMPANY_NAME', 'HR-Automation')
 
         replacements["{CERTIFICATE_ID}"] = certificate_id
         replacements["{Certificate_ID}"] = certificate_id

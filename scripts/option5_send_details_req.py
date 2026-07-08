@@ -38,7 +38,7 @@ class OfferDetailsSender:
 
         # 2. Data for HTML Replacement (Using cid: for images)
         self.placeholders = {
-            "web_link": os.getenv("WEBSITE_URL", "https://www.swipegen.in"),
+            "web_link": os.getenv("WEBSITE_URL", "https://www.hr-automation.in"),
             "ig_link": os.getenv("INSTAGRAM_URL", "#"),
             "li_link": os.getenv("LINKEDIN_URL", "#"),
             "google_link": os.getenv("GOOGLE_SEARCH_URL", "#"),
@@ -150,7 +150,7 @@ class OfferDetailsSender:
             server.starttls()
             server.login(self.sender_email, self.sender_password)
             
-            subject = "Congratulations! Next Steps for your Offer Letter - SwipeGen"
+            subject = "Congratulations! Next Steps for your Offer Letter - HR-Automation"
             
             # 1. Prepare Content
             template_path = os.path.join(self.base_dir, "templates", "offer_details_template.html")

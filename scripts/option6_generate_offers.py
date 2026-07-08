@@ -273,7 +273,7 @@ class OfferLetterGenerator:
                 print(f"{R}❌ Failed: {e}{W}")
 
 def main():
-    print(f"{B}📄 SwipeGen Offer Letter Generator{W}\n")
+    print(f"{B}📄 HR-Automation Offer Letter Generator{W}\n")
     generator = OfferLetterGenerator()
     generator.run_process()
     print(f"\n{G}✨ Done!{W}")

@@ -38,7 +38,7 @@ class OfferEmailSender:
         }
 
         self.social_links = {
-            "web_link": os.getenv("WEBSITE_URL", "https://www.swipegen.in"),
+            "web_link": os.getenv("WEBSITE_URL", "https://www.hr-automation.in"),
             "ig_link": os.getenv("INSTAGRAM_URL", "#"),
             "li_link": os.getenv("LINKEDIN_URL", "#"),
             "google_link": os.getenv("GOOGLE_SEARCH_URL", "#"),
@@ -126,7 +126,7 @@ class OfferEmailSender:
         msg = MIMEMultipart('related')
         msg['From'] = self.sender_email
         msg['To'] = recipient_email
-        msg['Subject'] = "Journey with SwipeGen begins now!"
+        msg['Subject'] = "Journey with HR-Automation begins now!"
 
         with open(self.template_path, "r", encoding="utf-8") as f:
             html_content = f.read().format(
