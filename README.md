@@ -133,6 +133,22 @@ npm run dev
 
 The frontend communicates with the backend via the project's service APIs (see `frontend/src/services`).
 
+### Backend API (FastAPI)
+
+A minimal FastAPI app is provided in `api.py`. Install dependencies and run the API with Uvicorn for development or Gunicorn+Uvicorn workers for production.
+
+Development:
+```bash
+uvicorn api:app --host 0.0.0.0 --port 8000 --reload
+```
+
+Production (Gunicorn + Uvicorn workers):
+```bash
+gunicorn -k uvicorn.workers.UvicornWorker api:app -w 4 -b 0.0.0.0:8000
+```
+
+Extend `api.py` to call internal script functions (via safe, explicit mappings) rather than executing shell commands.
+
 ## 📋 Main Menu Options
 
 The application presents a menu-driven interface with the following workflow options:
