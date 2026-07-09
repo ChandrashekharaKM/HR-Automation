@@ -103,6 +103,22 @@ function SheetUrlCard({ form, setForm, onTest }) {
                 className="input-field pl-8 text-xs font-mono"
               />
             </div>
+            {/* Quick pick: choose one of the configured sheet URLs from .env */}
+            <div className="flex items-center">
+              <select
+                className="input-field text-xs px-2"
+                onChange={e => {
+                  const v = e.target.value
+                  if (v) setForm(frm => ({ ...frm, [f.key]: v }))
+                }}
+                value=""
+              >
+                <option value="">Pick configured</option>
+                {['registration_sheet_url','interview_response_sheet_url','offer_details_sheet_url'].map(k => (
+                  form[k] ? <option key={k} value={form[k]}>{k.replace(/_/g,' ').replace('sheet url','').trim()}</option> : null
+                ))}
+              </select>
+            </div>
             <button
               onClick={() => handleTest(f.key, form[f.key])}
               disabled={testing[f.key]}
