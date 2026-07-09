@@ -123,3 +123,60 @@ async def update_candidate_status(row_id: int, payload: dict):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/candidates")
+async def create_candidate(payload: dict):
+    """Append a new candidate row to the registration sheet.
+
+    Expected payload keys: name, email, college, role, cgpa, resume_link
+    Returns the created row number as `id`.
+    """
+    try:
+        ws = _open_worksheet()
+        headers = ws.row_values(1)
+
+        # Map incoming payload fields to sheet columns
+        mapping = {
+            'name': 'Name',
+            'email': 'Email',
+            'college': 'College',
+            'role': 'Role',
+            'cgpa': 'CGPA',
+            'resume_link': 'Resume Link',
+        }
+
+        # Build row in header order
+        row_values = []
+        for h in headers:
+            key = None
+            for k, v in mapping.items():
+                if v.lower() == h.strip().lower():
+                    key = k
+                    break
+            if key:
+                row_values.append(payload.get(key, ''))
+            else:
+                # For other columns, leave blank except for Status/Applied Date
+                if h.strip().lower() == 'status':
+                    row_values.append('applied')
+                elif h.strip().lower() in ('applied date', 'applieddate'):
+                    from datetime import datetime
+                    row_values.append(datetime.utcnow().isoformat())
+                else:
+                    row_values.append('')
+
+        # If headers were missing expected columns, append missing values at end
+        # (gspread will expand as needed)
+        append_result = ws.append_row(row_values)
+
+        # gspread's append_row does not directly return row index; fetch last row
+        last_row = len(ws.get_all_values())
+        created = {
+            'id': last_row,
+            **{k: payload.get(k, '') for k in mapping.keys()}
+        }
+        created['_row'] = last_row
+        return JSONResponse(created)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

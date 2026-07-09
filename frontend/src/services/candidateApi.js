@@ -66,6 +66,32 @@ export const candidateApi = {
   },
 
   create: async (data) => {
+    const up = await isBackendUp()
+    if (up) {
+      try {
+        const res = await fetch('/api/candidates', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: data.name || data.fullName || '',
+            email: data.email || '',
+            college: data.college || '',
+            role: data.role || '',
+            cgpa: data.cgpa || '',
+            resume_link: data.resume || data.resumeLink || ''
+          })
+        })
+        if (res.ok) {
+          const created = await res.json()
+          // Mirror in-memory store
+          const newC = { id: String(created.id), name: data.name, email: data.email, status: 'applied', appliedDate: new Date().toISOString(), ...data }
+          candidates = [newC, ...candidates]
+          return newC
+        }
+      } catch (e) {
+        // fall back to mock
+      }
+    }
     await sleep(400)
     const newC = { ...data, id: String(Date.now()), status: 'applied', appliedDate: new Date().toISOString() }
     candidates = [newC, ...candidates]
