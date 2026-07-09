@@ -5,13 +5,16 @@ import os
 import re
 from oauth2client.service_account import ServiceAccountCredentials
 import gspread
+from dotenv import load_dotenv, set_key, dotenv_values
 
 # Path to scripts/service_account.json
 BASE_DIR = os.path.dirname(__file__)
 SERVICE_ACCOUNT_FILE = os.path.join(BASE_DIR, 'scripts', 'service_account.json')
+DOTENV_PATH = os.path.join(BASE_DIR, 'scripts', '.env')
 
-def _open_worksheet():
-    sheet_url = os.getenv('REGISTRATION_SHEET_URL')
+def _open_worksheet(sheet_url: str | None = None):
+    """Open a worksheet using the service account. If sheet_url is None, uses REGISTRATION_SHEET_URL."""
+    sheet_url = sheet_url or os.getenv('REGISTRATION_SHEET_URL')
     if not sheet_url:
         raise RuntimeError('REGISTRATION_SHEET_URL not configured')
 
@@ -180,3 +183,47 @@ async def create_candidate(payload: dict):
         return JSONResponse(created)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get('/api/settings')
+async def get_settings():
+    """Return current configurable settings (sheet URLs and ids)."""
+    # Load .env values if present
+    load_dotenv(DOTENV_PATH)
+    keys = [
+        'REGISTRATION_SHEET_URL', 'INTERVIEW_RESPONSE_SHEET_URL', 'OFFER_DETAILS_SHEET_URL',
+        'CERTIFICATES_DRIVE_FOLDER_ID', 'OFFER_LETTERS_DRIVE_FOLDER_ID', 'COMPANY_NAME',
+        'SENDER_EMAIL', 'SMTP_PORT'
+    ]
+    values = {k: os.getenv(k) for k in keys}
+    return JSONResponse(values)
+
+
+@app.post('/api/settings')
+async def set_settings(payload: dict):
+    """Update settings by writing to scripts/.env. Returns updated values."""
+    try:
+        # Read existing dotenv values
+        current = dotenv_values(DOTENV_PATH) or {}
+        for k, v in payload.items():
+            # Only allow known keys to be set
+            if k.startswith('REGISTRATION_') or k.endswith('_SHEET_URL') or k in ('COMPANY_NAME', 'SENDER_EMAIL', 'SMTP_PORT', 'CERTIFICATES_DRIVE_FOLDER_ID', 'OFFER_LETTERS_DRIVE_FOLDER_ID'):
+                set_key(DOTENV_PATH, k, str(v))
+        # Reload into environment
+        load_dotenv(DOTENV_PATH, override=True)
+        return await get_settings()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post('/api/settings/test-sheet')
+async def test_sheet(payload: dict):
+    """Test connection to a given Google Sheet URL. Payload: {"sheet_url": "..."} or uses REGISTRATION_SHEET_URL."""
+    try:
+        sheet_url = payload.get('sheet_url') if payload else None
+        ws = _open_worksheet(sheet_url)
+        # return sheet title and first-row headers
+        headers = ws.row_values(1)
+        return JSONResponse({'ok': True, 'title': ws.title, 'headers': headers})
+    except Exception as e:
+        return JSONResponse({'ok': False, 'error': str(e)}, status_code=400)
