@@ -1,10 +1,10 @@
-# 🚀 HR-Automation System
+# 🚀 SwipeGen-Automation
 
-A comprehensive HR automation system designed to streamline the entire recruitment and internship workflow—from candidate shortlisting to completion certificate generation.
+SwipeGen-Automation is an automation toolkit designed to streamline recruitment workflows — from candidate shortlisting to offer letters and completion certificates.
 
 ## 📋 Overview
 
-HR-Automation is a Python-based automation tool that automates critical HR processes including:
+This repository contains Python scripts and a frontend app that automate critical HR processes including:
 
 ## 🔐 Ownership and Authority
 All administrative authority and ownership of this project are assigned to the project owner. This workspace is managed by the owner for HR-Automation operations.
@@ -46,12 +46,14 @@ All administrative authority and ownership of this project are assigned to the p
 ## 📁 Project Structure
 
 ```
-HR-Automation/
+SwipeGen-Automation/
 ├── README.md                          # Project documentation
 ├── config.json                        # Configuration settings
 ├── requirements.txt                   # Python dependencies
 ├── .gitignore                         # Git ignore rules
-│
+├── frontend/                          # Web frontend (Vite + React / TS)
+│  ├── package.json
+│  └── src/
 ├── scripts/
 │   ├── main_menu.py                  # Main application menu
 │   ├── option1_view_shortlist.py     # View & shortlist candidates
@@ -75,31 +77,32 @@ HR-Automation/
 │   └── completion_email_template.html # Completion notification template
 │
 └── output/
-    ├── certificates/                 # Generated certificates
-    └── offer_letters/                # Generated offer letters
+   ├── certificates/                 # Generated certificates
+   └── offer_letters/                # Generated offer letters
 ```
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 - Python 3.8+
+- Node.js (for the frontend)
 - Google API credentials for Google Sheets access
 - SMTP configuration for email sending
 
-### Installation
+### Installation (Backend)
 
 1. **Clone the repository:**
    ```bash
    git clone <your-repository-url>
-   cd HR-Automation
+   cd SwipeGen-Automation
    ```
 
-2. **Install dependencies:**
+2. **Install Python dependencies:**
    ```bash
    pip install -r requirements.txt
    ```
 
-3. **Configure the application:**
+3. **Configure the backend:**
    - Update `config.json` with your email and SMTP settings:
      ```json
      {
@@ -110,14 +113,25 @@ HR-Automation/
      ```
 
 4. **Set up Google API credentials:**
-   - Place your `credentials.json` file in the `scripts/` directory
-   - Place your `service_account.json` file in the `scripts/` directory
+   - Place your `credentials.json` and `service_account.json` files in the `scripts/` directory
 
-5. **Run the application:**
+5. **Run the backend CLI:**
    ```bash
    cd scripts
    python main_menu.py
    ```
+
+### Frontend (optional)
+
+The repository contains a Vite + React frontend in the `frontend/` folder. To run it:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The frontend communicates with the backend via the project's service APIs (see `frontend/src/services`).
 
 ## 📋 Main Menu Options
 
@@ -203,11 +217,7 @@ For contributions or improvements:
 
 ## 📜 License
 
-This project is licensed under the MIT License.
-
-## 📝 License
-
-This project is proprietary and confidential.
+This project is licensed under the MIT License. If this repository should be proprietary, update the license file accordingly.
 
 ## 👥 Ownership
 
@@ -219,5 +229,5 @@ For issues, questions, or feature requests, please contact the development team 
 
 ---
 
-**Last Updated:** January 2026  
+**Last Updated:** 2026-07-09  
 **Version:** 1.0.0
