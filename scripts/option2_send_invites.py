@@ -181,6 +181,31 @@ class InterviewInviter:
         except Exception as e:
             print(f"{R}❌ SMTP Connection Error: {e}{W}")
 
+    def send_in_batches(self, candidates, batch_size=50, pause_between_batches=5):
+        """Send candidates in batches. Opens a fresh SMTP session per batch to keep sessions short."""
+        total = len(candidates)
+        if total == 0:
+            print(f"{R}❌ No candidates to send.{W}"); return
+
+        print(f"{Y}Will send {total} emails in batches of {batch_size}.{W}")
+        for start in range(0, total, batch_size):
+            end = min(start + batch_size, total)
+            batch = candidates[start:end]
+            print(f"\n{B}--- Sending batch {start//batch_size + 1}: {start+1}-{end} ---{W}")
+            self.send_bulk_emails(batch)
+
+            if end < total:
+                # Prompt to continue or wait
+                resp = input(f"\n👉 {C}Continue to next batch? (Y/n) [auto in {pause_between_batches}s]: {W}").strip().lower()
+                if resp == 'n':
+                    print(f"{Y}Stopping after batch {start//batch_size + 1}.{W}")
+                    break
+                elif resp == '':
+                    print(f"{Y}Auto-continuing in {pause_between_batches}s...{W}")
+                    time.sleep(pause_between_batches)
+                else:
+                    continue
+
 def main():
     inviter = InterviewInviter()
     if not inviter.connect(): return
@@ -203,7 +228,12 @@ def main():
             
             action = input(f"\n👉 {C}Type 'all' or range '1-5': {W}").strip().lower()
             if action == 'all':
-                inviter.send_bulk_emails(candidates)
+                bs = input(f"\n👉 {C}Batch size (default 50): {W}").strip()
+                try:
+                    batch_size = int(bs) if bs else 50
+                except:
+                    batch_size = 50
+                inviter.send_in_batches(candidates, batch_size=batch_size)
             elif '-' in action:
                 try:
                     s, e = map(int, action.split('-'))

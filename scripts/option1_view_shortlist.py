@@ -4,6 +4,8 @@ import csv
 import requests
 from io import StringIO
 from dotenv import load_dotenv
+from utils.resume_analyser import analyse_resume, print_analysis_report
+import os
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
@@ -89,8 +91,16 @@ def main():
     if not REGISTRATION_SHEET_URL:
         print(f"{R}❌ URL missing in .env{W}")
         return
-
     manager = ShortlistManager(REGISTRATION_SHEET_URL)
+
+    # AI-assisted shortlisting default toggle
+    ai_default = False
+    gemini_key = os.getenv('GEMINI_API_KEY')
+    if gemini_key:
+        resp = input(f"\n👉 {C}Enable AI-assisted shortlisting by default? (y/N): {W}").strip().lower()
+        ai_default = (resp == 'y')
+    else:
+        print(f"{Y}⚠ GEMINI_API_KEY not set — AI analysis disabled.{W}")
     
     print(f"\n{C}{'='*80}\n      OPTION 1: CANDIDATE REGISTRATION & RESUME REVIEW\n{'='*80}{W}")
 
@@ -109,15 +119,54 @@ def main():
             
             while True:
                 print(f"{G}1. Shortlist{W}")
+                print(f"{C}A. AI-rate resume (show report){W}")
                 print(f"{R}2. Not Shortlist{W}")
                 print(f"{Y}3. Break (Main Menu){W}")
-                
-                choice = input(f"\n👉 {C}Select option (1-3): {W}")
-                
+
+                choice = input(f"\n👉 {C}Select option (1/A/2/3): {W}")
+
+                if choice.lower() == 'a':
+                    resume_link = c.get('Resume Link') or c.get('Resume')
+                    if not resume_link:
+                        print(f"{R}No resume link available to analyse.{W}")
+                        continue
+                    report = analyse_resume(resume_link, SERVICE_ACCOUNT_FILE, os.getenv('GEMINI_API_KEY'))
+                    if report:
+                        print_analysis_report(report)
+                    else:
+                        print(f"{R}AI analysis failed or returned no result.{W}")
+                    continue
+
                 if choice == '1':
-                    manager.update_sheet(c['_row'], "Resume Shortlisted")
-                    print(f"{G}✅ Row {c['_row']} updated: Shortlisted{W}")
-                    break
+                    # If AI default enabled, run analysis and auto-decision (with confirmation)
+                    if ai_default:
+                        resume_link = c.get('Resume Link') or c.get('Resume')
+                        if resume_link and gemini_key:
+                            report = analyse_resume(resume_link, SERVICE_ACCOUNT_FILE, gemini_key)
+                            if report:
+                                print_analysis_report(report)
+                                score = report.get('suitability_score', 0) or 0
+                                auto_shortlist = score >= 6
+                                if auto_shortlist:
+                                    manager.update_sheet(c['_row'], "Resume Shortlisted")
+                                    print(f"{G}✅ AI recommended Shortlist (score {score}). Row {c['_row']} updated: Shortlisted{W}")
+                                    break
+                                else:
+                                    manager.update_sheet(c['_row'], "Not Shortlisted")
+                                    print(f"{Y}⚠ AI recommended Not Shortlisted (score {score}). Row {c['_row']} updated: Not Shortlisted{W}")
+                                    break
+                            else:
+                                print(f"{R}AI analysis unavailable — please choose manually.{W}")
+                                continue
+                        else:
+                            print(f"{Y}No resume link or GEMINI key — performing manual shortlist.{W}")
+                            manager.update_sheet(c['_row'], "Resume Shortlisted")
+                            print(f"{G}✅ Row {c['_row']} updated: Shortlisted{W}")
+                            break
+                    else:
+                        manager.update_sheet(c['_row'], "Resume Shortlisted")
+                        print(f"{G}✅ Row {c['_row']} updated: Shortlisted{W}")
+                        break
                 elif choice == '2':
                     manager.update_sheet(c['_row'], "Not Shortlisted")
                     print(f"{R}❌ Row {c['_row']} updated: Rejected{W}")
