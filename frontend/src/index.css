@@ -130,6 +130,11 @@ body {
            focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/50
            transition-all duration-200;
   }
+  /* Ensure native select options remain readable in dark theme */
+  .input-field option {
+    color: var(--text-primary);
+    background: var(--surface);
+  }
 
   /* Table styles */
   .data-table {
