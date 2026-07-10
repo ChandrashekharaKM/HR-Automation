@@ -105,11 +105,38 @@ class OfferEmailSender:
         
         # Fallback search
         if not os.path.exists(pdf_path):
-            pdf_path_alt = os.path.join(self.offer_dir, f"Offer_{safe_name}.pdf")
-            if os.path.exists(pdf_path_alt):
-                pdf_path = pdf_path_alt
-                pdf_filename = f"Offer_{safe_name}.pdf"
-            else:
+            found = False
+            if email_prefix != "no_email":
+                suffix = f"_{email_prefix.lower()}.pdf"
+                for file in os.listdir(self.offer_dir):
+                    if file.lower().endswith(suffix):
+                        pdf_path = os.path.join(self.offer_dir, file)
+                        pdf_filename = file
+                        found = True
+                        break
+            if not found:
+                pdf_path_alt = os.path.join(self.offer_dir, f"Offer_{safe_name}.pdf")
+                if os.path.exists(pdf_path_alt):
+                    pdf_path = pdf_path_alt
+                    pdf_filename = f"Offer_{safe_name}.pdf"
+                    found = True
+            if not found:
+                first_name_safe = "".join([c if c.isalnum() or c == '_' else "_" for c in full_name.split()[0]])
+                filename_first = f"Offer_{first_name_safe}_{email_prefix}.pdf"
+                path_first = os.path.join(self.offer_dir, filename_first)
+                if os.path.exists(path_first):
+                    pdf_path = path_first
+                    pdf_filename = filename_first
+                    found = True
+            if not found:
+                first_name = full_name.split()[0].lower()
+                for file in os.listdir(self.offer_dir):
+                    if file.lower().endswith(".pdf") and first_name in file.lower():
+                        pdf_path = os.path.join(self.offer_dir, file)
+                        pdf_filename = file
+                        found = True
+                        break
+            if not found:
                 print(f"{R}❌ PDF missing: {pdf_filename}. Run Generator first.{W}")
                 return False
 
@@ -129,13 +156,17 @@ class OfferEmailSender:
         msg['Subject'] = "Journey with HR-Automation begins now!"
 
         with open(self.template_path, "r", encoding="utf-8") as f:
-            html_content = f.read().format(
-                name=full_name.split()[0],
-                role=manual_data['role'],
-                start_date=start_date_str,
-                expiry_date=expiry_date_str,
-                **self.social_links 
-            )
+            tpl = f.read()
+            
+        signature = os.getenv("EMAIL_SIGNATURE", "Regards,\nHR Team\nSwipeGen Technologies").replace("\n", "<br>")
+        html_content = tpl.replace("{name}", full_name.split()[0])
+        html_content = html_content.replace("{role}", manual_data['role'])
+        html_content = html_content.replace("{start_date}", start_date_str)
+        html_content = html_content.replace("{expiry_date}", expiry_date_str)
+        html_content = html_content.replace("{signature}", signature)
+        
+        for key, val in self.social_links.items():
+            html_content = html_content.replace(f"{{{key}}}", str(val))
         msg.attach(MIMEText(html_content, 'html'))
 
         for cid_name, filename in self.local_images.items():

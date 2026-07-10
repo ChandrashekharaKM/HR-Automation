@@ -83,8 +83,20 @@ class InterviewInviter:
             template_path = os.path.join(self.base_dir, "templates", "interview_email_template.html")
             with open(template_path, "r", encoding="utf-8") as file:
                 tpl = file.read()
-                # Fill placeholders with name, form link, and cid references
-                return tpl.format(name=name, form_url=self.google_form_url, **self.social_links)
+            
+            # Load and format email signature
+            signature = os.getenv("EMAIL_SIGNATURE", "Regards,\nHR Team\nSwipeGen Technologies").replace("\n", "<br>")
+            
+            # Replace placeholders manually to avoid KeyError with CSS style braces
+            html = tpl.replace("{name}", name)
+            html = html.replace("{form_url}", self.google_form_url)
+            html = html.replace("{signature}", signature)
+            
+            # Replace social links
+            for key, val in self.social_links.items():
+                html = html.replace(f"{{{key}}}", str(val))
+                
+            return html
         except Exception as e:
             print(f"{R}❌ Template Error: {e}{W}")
             return f"<p>Hi {name}, please confirm your interview here: <a href='{self.google_form_url}'>Link</a></p>"

@@ -5,13 +5,11 @@ import sys
 # Setup directory paths to ensure scripts are accessible
 # Get the base directory of the current script
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# Join the base directory with the 'scripts' folder to create a path to the scripts directory
-SCRIPTS_DIR = os.path.join(BASE_DIR, "scripts")
 
-# Check if the scripts directory is not already in the system path
-if SCRIPTS_DIR not in sys.path:
+# Check if the base directory is not already in the system path
+if BASE_DIR not in sys.path:
     # If not, insert it at the beginning of the system path
-    sys.path.insert(0, SCRIPTS_DIR)
+    sys.path.insert(0, BASE_DIR)
 
 # Define the main menu class for the HR-Automation System
 class HRAutomationMainMenu:
@@ -53,23 +51,23 @@ class HRAutomationMainMenu:
         try:
             # Mapping menu choices to the required module functions
             if option == "1":
-                from option1_view_shortlist import main
+                from view_shortlist import main
             elif option == "2":
-                from option2_send_invites import main
+                from send_invites import main
             elif option == "3":
-                from option3_generate_summary import main
+                from generate_summary import main
             elif option == "4":
-                from option4_update_hired import main
+                from update_hired import main
             elif option == "5":
-                from option5_send_details_req import main
+                from send_details_req import main
             elif option == "6":
-                from option6_generate_offers import main
+                from generate_offers import main
             elif option == "7":
-                from option7_send_offer_letters import main
+                from send_offer_letters import main
             elif option == "8":
-                from option8_generate_certificates import main
+                from generate_certificates import main
             elif option == "9":
-                from option9_send_completion import main
+                from send_completion import main
             else:
                 print("❌ Invalid option. Please select 0-9.")
                 return

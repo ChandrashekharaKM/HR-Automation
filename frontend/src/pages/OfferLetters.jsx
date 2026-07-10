@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FileText, Eye, Download, Send, RefreshCw, Building2 } from 'lucide-react'
+import { FileText, Eye, Download, Send, RefreshCw, Building2, Upload } from 'lucide-react'
 import { candidateApi } from '../services/candidateApi'
 import Avatar from '../components/Avatar'
 import StatusBadge from '../components/StatusBadge'
@@ -8,54 +8,58 @@ import { TableSkeleton } from '../components/Loader'
 import toast from 'react-hot-toast'
 
 function OfferPreviewModal({ candidate, onClose }) {
+  const name = candidate?.name || 'Candidate'
+  const email = candidate?.email || 'no_email'
+  const email_prefix = email.split('@')[0]
+  const safe_name = name.replace(/[^a-zA-Z0-9_]/g, '_')
+  const filename = `Offer_${safe_name}_${email_prefix}.pdf`
+  const pdfUrl = `/api/offers/${filename}`
+  const [showRealPdf, setShowRealPdf] = useState(false)
+  const [pdfExists, setPdfExists] = useState(false)
+
+  useEffect(() => {
+    fetch(pdfUrl, { method: 'HEAD' })
+      .then(res => {
+        if (res.ok) {
+          setPdfExists(true)
+          setShowRealPdf(true)
+        }
+      })
+      .catch(() => {})
+  }, [pdfUrl])
+
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal-content" style={{ maxWidth: '680px' }}>
+      <div className="modal-content" style={{ maxWidth: '800px', width: '90%' }}>
         <div className="flex items-center justify-between p-6 border-b border-white/5">
-          <h2 className="text-lg font-bold text-white">Offer Letter Preview</h2>
-          <button onClick={onClose} className="btn-ghost p-2">✕</button>
+          <h2 className="text-lg font-bold text-white">Offer Letter Review</h2>
+          <div className="flex items-center gap-2">
+            {pdfExists && (
+              <button onClick={() => setShowRealPdf(!showRealPdf)} className="btn-secondary text-xs px-2.5 py-1">
+                {showRealPdf ? "Show Template Preview" : "Show Uploaded/Generated PDF"}
+              </button>
+            )}
+            <button onClick={onClose} className="btn-ghost p-2">✕</button>
+          </div>
         </div>
-        <div className="p-8">
-          {/* Mock offer letter */}
-          <div className="bg-white text-gray-900 rounded-xl p-8 space-y-5 text-sm">
-            <div className="flex items-center justify-between border-b border-gray-200 pb-4">
-              <div>
-                <p className="text-xl font-bold text-indigo-700">SwipeGen Technologies</p>
-                <p className="text-gray-500 text-xs">HR Department</p>
-              </div>
-              <p className="text-gray-400 text-xs">{new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+        <div className="p-6">
+          {showRealPdf && pdfExists ? (
+            <div className="rounded-xl overflow-hidden bg-slate-900 border border-white/10 h-[500px]">
+              <iframe 
+                src={pdfUrl} 
+                className="w-full h-full border-none"
+                title="Offer Letter PDF"
+              />
             </div>
-            <div>
-              <p className="font-semibold text-gray-700">To,</p>
-              <p className="font-bold text-gray-900 mt-1">{candidate?.name}</p>
-              <p className="text-gray-500">{candidate?.email}</p>
+          ) : (
+            <div className="rounded-xl overflow-hidden bg-slate-900 border border-white/10 h-[500px]">
+              <iframe 
+                src={`/api/offers/preview/${candidate.row || candidate.id}`} 
+                className="w-full h-full border-none bg-white"
+                title="Offer Email Template Preview"
+              />
             </div>
-            <p className="text-gray-700">Dear <strong>{candidate?.name?.split(' ')[0]}</strong>,</p>
-            <p className="text-gray-700 leading-relaxed">
-              We are pleased to offer you the position of <strong>{candidate?.role}</strong> at SwipeGen Technologies.
-              After reviewing your application and interview performance, we are confident that you will be a valuable addition to our team.
-            </p>
-            <div className="bg-indigo-50 rounded-lg p-4 border border-indigo-100">
-              <p className="font-semibold text-indigo-800 mb-2">Offer Details</p>
-              <div className="grid grid-cols-2 gap-2 text-xs text-gray-700">
-                <span>Position:</span><span className="font-medium">{candidate?.role}</span>
-                <span>Stipend:</span><span className="font-medium text-green-700">{candidate?.salary || '₹20,000/month'}</span>
-                <span>Joining Date:</span><span className="font-medium">{candidate?.joiningDate || 'To be confirmed'}</span>
-                <span>Duration:</span><span className="font-medium">6 months internship</span>
-              </div>
-            </div>
-            <p className="text-gray-700 text-xs leading-relaxed">
-              Please sign and return this letter by the indicated deadline. We look forward to welcoming you to the SwipeGen family!
-            </p>
-            <div className="pt-4 border-t border-gray-200">
-              <p className="font-semibold text-gray-800">HR Team</p>
-              <p className="text-xs text-gray-500">SwipeGen Technologies</p>
-            </div>
-          </div>
-          <div className="flex gap-3 mt-5">
-            <button className="btn-primary flex-1 justify-center"><Download size={15} /> Download PDF</button>
-            <button className="btn-secondary flex-1 justify-center"><Send size={15} /> Send to Candidate</button>
-          </div>
+          )}
         </div>
       </div>
     </div>
@@ -70,7 +74,13 @@ export default function OfferLetters() {
   const navigate = useNavigate()
 
   const load = () => {
-    candidateApi.getAll({ status: 'hired' }).then(d => { setCandidates(d); setLoading(false) })
+    Promise.all([
+      candidateApi.getAll({ status: 'hired' }),
+      candidateApi.getAll({ status: 'offer' }),
+    ]).then(([hiredList, offerList]) => {
+      setCandidates([...hiredList, ...offerList])
+      setLoading(false)
+    })
   }
   useEffect(() => { load() }, [])
 
@@ -82,12 +92,34 @@ export default function OfferLetters() {
     load()
   }
 
+  const handleFileUpload = async (c, file) => {
+    if (!file) return
+    const toastId = toast.loading('Uploading document...')
+    try {
+      await candidateApi.uploadOffer(c.id, file)
+      toast.success('📄 Document uploaded successfully!', { id: toastId })
+      load()
+    } catch (e) {
+      toast.error(e.message || 'Upload failed', { id: toastId })
+    }
+  }
+
+  const handleDownloadPdf = (c) => {
+    const name = c.name || 'Candidate'
+    const email = c.email || 'no_email'
+    const email_prefix = email.split('@')[0]
+    const safe_name = name.replace(/[^a-zA-Z0-9_]/g, '_')
+    const filename = `Offer_${safe_name}_${email_prefix}.pdf`
+    const url = `/api/offers/${filename}`
+    window.open(url, '_blank')
+  }
+
   return (
     <div className="space-y-5 animate-fade-in">
       <div className="glass-card p-4 flex items-center gap-3 border-l-4" style={{ borderLeftColor: '#f59e0b' }}>
         <FileText size={18} className="text-yellow-400" />
         <p className="text-sm text-slate-300">
-          Generate and send offer letters to hired candidates.
+          Generate, upload and send offer letters to hired candidates.
           <strong className="text-white"> {candidates.length}</strong> pending.
         </p>
       </div>
@@ -135,7 +167,7 @@ export default function OfferLetters() {
                     <td><StatusBadge status={c.status} /></td>
                     <td>
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <button onClick={() => setPreview(c)} className="btn-ghost text-xs px-2 py-1.5">
+                        <button onClick={() => setPreview(c)} className="btn-ghost text-xs px-2 py-1.5" title="Preview Letter">
                           <Eye size={13} /> Preview
                         </button>
                         <button onClick={() => act(c, () => candidateApi.generateOffer(c.id), '📄 Offer PDF generated!')}
@@ -143,11 +175,20 @@ export default function OfferLetters() {
                           {acting === c.id ? <RefreshCw size={12} className="animate-spin" /> : <FileText size={12} />}
                           Generate
                         </button>
+                        <label className="btn-secondary text-xs px-2 py-1.5 cursor-pointer inline-flex items-center gap-1">
+                          <Upload size={12} /> Upload
+                          <input
+                            type="file"
+                            accept=".pdf,.docx"
+                            className="hidden"
+                            onChange={(e) => handleFileUpload(c, e.target.files[0])}
+                          />
+                        </label>
                         <button onClick={() => act(c, () => candidateApi.sendOffer(c.id), '✉️ Offer sent via email!')}
                           disabled={acting === c.id} className="btn-primary text-xs px-2 py-1.5">
                           <Send size={12} /> Send
                         </button>
-                        <button className="btn-ghost text-xs px-2 py-1.5">
+                        <button onClick={() => handleDownloadPdf(c)} className="btn-ghost text-xs px-2 py-1.5" title="Download PDF">
                           <Download size={12} /> PDF
                         </button>
                       </div>

@@ -228,8 +228,11 @@ export default function Settings() {
           sender_email:    data.sender_email    || '',
           sender_password: data.sender_password || '',
           smtp_port:       data.smtp_port       || '587',
+          email_signature: data.email_signature || 'Regards,\nHR Team\nSwipeGen Technologies',
           certificates_drive_folder_id:  data.certificates_drive_folder_id  || '',
           offer_letters_drive_folder_id: data.offer_letters_drive_folder_id || '',
+          offer_template:                data.offer_template                || 'Default (offer_template.docx)',
+          cert_template:                 data.cert_template                 || 'Default (Completion_Certificate.docx)',
         }))
       }
       
@@ -264,6 +267,7 @@ export default function Settings() {
           sender_email:    form.sender_email,
           sender_password: form.sender_password !== '••••••••' ? form.sender_password : undefined,
           smtp_port:       form.smtp_port,
+          email_signature: form.email_signature,
           company_name:    form.company_name,
           website_url:     form.website_url,
           certificates_drive_folder_id:  form.certificates_drive_folder_id,
@@ -296,6 +300,32 @@ export default function Settings() {
     }
     setSaving(false)
     checkBackend()
+  }
+
+  const handleTemplateUpload = async (field, file) => {
+    if (!file) return
+    const type = field === 'offer_template' ? 'offer' : 'certificate'
+    const toastId = toast.loading(`Uploading ${type} template...`)
+    
+    const formData = new FormData()
+    formData.append('file', file)
+    
+    try {
+      const res = await fetch(`/api/settings/templates/upload/${type}`, {
+        method: 'POST',
+        body: formData
+      })
+      
+      if (res.ok) {
+        toast.success(`🎉 ${type.charAt(0).toUpperCase() + type.slice(1)} template uploaded!`, { id: toastId })
+        setForm(f => ({ ...f, [field]: file.name }))
+      } else {
+        const err = await res.json()
+        toast.error(err.detail || 'Upload failed', { id: toastId })
+      }
+    } catch (e) {
+      toast.error('Upload failed', { id: toastId })
+    }
   }
 
   const set = field => e => setForm(f => ({ ...f, [field]: e.target.value }))
@@ -453,8 +483,21 @@ export default function Settings() {
                 <div key={field}>
                   <label className="block text-xs font-semibold text-slate-400 mb-1.5">{label}</label>
                   <div className="flex items-center gap-3">
-                    <input value={form[field]} onChange={set(field)} className="input-field flex-1" />
-                    <button className="btn-secondary text-xs flex-shrink-0"><Upload size={13} /> Upload</button>
+                    <input 
+                      type="text" 
+                      readOnly 
+                      value={form[field]} 
+                      className="input-field flex-1 bg-white/5 cursor-default" 
+                    />
+                    <label className="btn-secondary text-xs flex-shrink-0 cursor-pointer inline-flex items-center gap-1">
+                      <Upload size={13} /> Upload Template
+                      <input 
+                        type="file" 
+                        accept=".docx" 
+                        className="hidden" 
+                        onChange={(e) => handleTemplateUpload(field, e.target.files[0])} 
+                      />
+                    </label>
                   </div>
                 </div>
               ))}

@@ -7,10 +7,10 @@ from oauth2client.service_account import ServiceAccountCredentials
 import gspread
 from dotenv import load_dotenv, set_key, dotenv_values
 
-# Path to scripts/service_account.json
+# Path to backend/service_account.json
 BASE_DIR = os.path.dirname(__file__)
-SERVICE_ACCOUNT_FILE = os.path.join(BASE_DIR, 'scripts', 'service_account.json')
-DOTENV_PATH = os.path.join(BASE_DIR, 'scripts', '.env')
+SERVICE_ACCOUNT_FILE = os.path.join(BASE_DIR, 'backend', 'service_account.json')
+DOTENV_PATH = os.path.join(BASE_DIR, 'backend', '.env')
 
 def _open_worksheet(sheet_url: str | None = None):
     """Open a worksheet using the service account. If sheet_url is None, uses REGISTRATION_SHEET_URL."""

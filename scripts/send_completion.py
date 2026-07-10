@@ -130,22 +130,36 @@ class CompletionEmailSender:
         except: pass
 
     def get_certificate_path(self, full_name, email):
-        # 1. Try exact name match first
-        safe_name = "".join([c if c.isalnum() else "_" for c in full_name.split()[0]])
-        email_prefix = email.split('@')[0] if email else "no_email"
-        filename = f"Cert_{safe_name}_{email_prefix}.pdf"
-        exact_path = os.path.join(self.cert_folder, filename)
+        email_prefix = email.split('@')[0].strip().lower() if email else "no_email"
         
-        if os.path.exists(exact_path):
-            return exact_path, filename
+        # 1. Try exact full name + email prefix match
+        safe_full_name = "".join([c if c.isalnum() or c == '_' else "_" for c in full_name])
+        filename = f"Cert_{safe_full_name}_{email_prefix}.pdf"
+        path = os.path.join(self.cert_folder, filename)
+        if os.path.exists(path):
+            return path, filename
             
-        # 2. Fallback: Search folder for partial match
+        # 2. Try first name + email prefix match
+        safe_first_name = "".join([c if c.isalnum() or c == '_' else "_" for c in full_name.split()[0]])
+        filename = f"Cert_{safe_first_name}_{email_prefix}.pdf"
+        path = os.path.join(self.cert_folder, filename)
+        if os.path.exists(path):
+            return path, filename
+            
+        # 3. Scan directory for a file ending with the unique email prefix
+        if email_prefix != "no_email":
+            suffix = f"_{email_prefix}.pdf"
+            for file in os.listdir(self.cert_folder):
+                if file.lower().endswith(suffix):
+                    return os.path.join(self.cert_folder, file), file
+                    
+        # 4. Fallback to basic name search if email prefix has no match
         first_name = full_name.split()[0].lower()
         for file in os.listdir(self.cert_folder):
             if file.lower().endswith(".pdf") and first_name in file.lower():
                  return os.path.join(self.cert_folder, file), file
-        
-        return exact_path, filename
+                 
+        return os.path.join(self.cert_folder, f"Cert_{safe_full_name}_{email_prefix}.pdf"), f"Cert_{safe_full_name}_{email_prefix}.pdf"
 
     def send_email(self, candidate):
         name = candidate['Name']
@@ -155,6 +169,17 @@ class CompletionEmailSender:
         if not os.path.exists(cert_path):
             print(f"{R}   ❌ Certificate PDF missing for {name}{W}")
             return False
+
+        local_server = False
+        if not self.server:
+            try:
+                self.server = smtplib.SMTP('smtp.gmail.com', 587)
+                self.server.starttls()
+                self.server.login(self.sender_email, self.sender_password)
+                local_server = True
+            except Exception as e:
+                print(f"{R}   ❌ SMTP Connection/Login Failed: {e}{W}")
+                return False
 
         try:
             msg = MIMEMultipart('related')
@@ -180,9 +205,18 @@ class CompletionEmailSender:
                 msg.attach(attach)
 
             self.server.send_message(msg)
+            if local_server:
+                self.server.quit()
+                self.server = None
             return True
         except Exception as e:
             print(f"{R}   ❌ Email Failed: {e}{W}")
+            if local_server and self.server:
+                try:
+                    self.server.quit()
+                except:
+                    pass
+                self.server = None
             return False
 
     def update_status(self, row_num):

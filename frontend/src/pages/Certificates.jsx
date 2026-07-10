@@ -1,52 +1,64 @@
 import { useState, useEffect } from 'react'
-import { Award, Eye, Download, Send, RefreshCw, CheckCircle } from 'lucide-react'
+import { Award, Eye, Download, Send, RefreshCw, CheckCircle, Upload } from 'lucide-react'
 import { candidateApi } from '../services/candidateApi'
 import Avatar from '../components/Avatar'
 import { TableSkeleton } from '../components/Loader'
 import toast from 'react-hot-toast'
 
 function CertPreviewModal({ candidate, onClose }) {
+  const name = candidate?.name || 'Candidate'
+  const first_name = name.split(' ')[0]
+  const safe_name = first_name.replace(/[^a-zA-Z0-9_]/g, '_')
+  const email = candidate?.email || 'no_email'
+  const email_prefix = email.split('@')[0]
+  const filename = `Cert_${safe_name}_${email_prefix}.pdf`
+  const pdfUrl = `/api/certs/${filename}`
+  const [showRealPdf, setShowRealPdf] = useState(false)
+  const [pdfExists, setPdfExists] = useState(false)
+
+  useEffect(() => {
+    fetch(pdfUrl, { method: 'HEAD' })
+      .then(res => {
+        if (res.ok) {
+          setPdfExists(true)
+          setShowRealPdf(true)
+        }
+      })
+      .catch(() => {})
+  }, [pdfUrl])
+
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal-content" style={{ maxWidth: '680px' }}>
+      <div className="modal-content" style={{ maxWidth: '800px', width: '90%' }}>
         <div className="flex items-center justify-between p-6 border-b border-white/5">
-          <h2 className="text-lg font-bold text-white">Certificate Preview</h2>
-          <button onClick={onClose} className="btn-ghost p-2">✕</button>
+          <h2 className="text-lg font-bold text-white">Certificate Review</h2>
+          <div className="flex items-center gap-2">
+            {pdfExists && (
+              <button onClick={() => setShowRealPdf(!showRealPdf)} className="btn-secondary text-xs px-2.5 py-1">
+                {showRealPdf ? "Show Template Preview" : "Show Uploaded/Generated PDF"}
+              </button>
+            )}
+            <button onClick={onClose} className="btn-ghost p-2">✕</button>
+          </div>
         </div>
-        <div className="p-8">
-          {/* Certificate mock */}
-          <div className="rounded-xl p-10 text-center space-y-4 relative overflow-hidden"
-            style={{ background: 'linear-gradient(135deg, #1e3a5f, #0f2027)', border: '3px solid #f59e0b' }}>
-            {/* Corner decorations */}
-            <div className="absolute top-3 left-3 w-8 h-8 border-t-2 border-l-2 border-yellow-400 rounded-tl-lg" />
-            <div className="absolute top-3 right-3 w-8 h-8 border-t-2 border-r-2 border-yellow-400 rounded-tr-lg" />
-            <div className="absolute bottom-3 left-3 w-8 h-8 border-b-2 border-l-2 border-yellow-400 rounded-bl-lg" />
-            <div className="absolute bottom-3 right-3 w-8 h-8 border-b-2 border-r-2 border-yellow-400 rounded-br-lg" />
-            <p className="text-yellow-400 text-xs font-semibold tracking-widest uppercase">SwipeGen Technologies</p>
-            <p className="text-white/60 text-xs">Certificate of Completion</p>
-            <p className="text-white/70 text-sm">This is to certify that</p>
-            <p className="text-2xl font-bold text-yellow-300">{candidate?.name}</p>
-            <p className="text-white/70 text-sm leading-relaxed max-w-sm mx-auto">
-              has successfully completed the internship program as <br />
-              <strong className="text-white">{candidate?.role}</strong><br />
-              from <strong className="text-white">February 2024</strong> to <strong className="text-white">July 2024</strong>
-            </p>
-            <div className="pt-6 flex justify-around">
-              <div className="text-center">
-                <div className="w-24 h-px bg-white/30 mb-1" />
-                <p className="text-white/60 text-xs">HR Manager</p>
-              </div>
-              <div className="text-center">
-                <div className="w-24 h-px bg-white/30 mb-1" />
-                <p className="text-white/60 text-xs">Director</p>
-              </div>
+        <div className="p-6">
+          {showRealPdf && pdfExists ? (
+            <div className="rounded-xl overflow-hidden bg-slate-900 border border-white/10 h-[500px]">
+              <iframe 
+                src={pdfUrl} 
+                className="w-full h-full border-none"
+                title="Certificate PDF"
+              />
             </div>
-            <p className="text-white/30 text-xs mt-2">Verification ID: SWG-2024-{candidate?.id?.padStart(6,'0')}</p>
-          </div>
-          <div className="flex gap-3 mt-5">
-            <button className="btn-primary flex-1 justify-center"><Download size={15} /> Download PDF</button>
-            <button className="btn-secondary flex-1 justify-center"><Send size={15} /> Send Certificate</button>
-          </div>
+          ) : (
+            <div className="rounded-xl overflow-hidden bg-slate-900 border border-white/10 h-[500px]">
+              <iframe 
+                src={`/api/certs/preview/${candidate.row || candidate.id}`} 
+                className="w-full h-full border-none bg-white"
+                title="Certificate Email Template Preview"
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -61,7 +73,7 @@ export default function Certificates() {
 
   const load = () => {
     Promise.all([
-      candidateApi.getAll({ status: 'offer' }),
+      candidateApi.getAll({ status: 'ongoing' }),
       candidateApi.getAll({ status: 'completed' }),
     ]).then(([a, b]) => { setCandidates([...a, ...b]); setLoading(false) })
   }
@@ -75,12 +87,35 @@ export default function Certificates() {
     load()
   }
 
+  const handleFileUpload = async (c, file) => {
+    if (!file) return
+    const toastId = toast.loading('Uploading certificate...')
+    try {
+      await candidateApi.uploadCertificate(c.id, file)
+      toast.success('🎓 Certificate uploaded successfully!', { id: toastId })
+      load()
+    } catch (e) {
+      toast.error(e.message || 'Upload failed', { id: toastId })
+    }
+  }
+
+  const handleDownloadPdf = (c) => {
+    const name = c.name || 'Candidate'
+    const first_name = name.split(' ')[0]
+    const safe_name = first_name.replace(/[^a-zA-Z0-9_]/g, '_')
+    const email = c.email || 'no_email'
+    const email_prefix = email.split('@')[0]
+    const filename = `Cert_${safe_name}_${email_prefix}.pdf`
+    const url = `/api/certs/${filename}`
+    window.open(url, '_blank')
+  }
+
   return (
     <div className="space-y-5 animate-fade-in">
       <div className="glass-card p-4 flex items-center gap-3 border-l-4" style={{ borderLeftColor: '#22c55e' }}>
         <Award size={18} className="text-green-400" />
         <p className="text-sm text-slate-300">
-          Generate and send internship completion certificates.
+          Generate, upload and send internship completion certificates.
           <strong className="text-white"> {candidates.length}</strong> candidates.
         </p>
       </div>
@@ -139,11 +174,20 @@ export default function Certificates() {
                           {acting === c.id ? <RefreshCw size={12} className="animate-spin" /> : <Award size={12} />}
                           Generate
                         </button>
+                        <label className="btn-secondary text-xs px-2 py-1.5 cursor-pointer inline-flex items-center gap-1">
+                          <Upload size={12} /> Upload
+                          <input
+                            type="file"
+                            accept=".pdf,.docx"
+                            className="hidden"
+                            onChange={(e) => handleFileUpload(c, e.target.files[0])}
+                          />
+                        </label>
                         <button onClick={() => act(c, () => candidateApi.sendCertificate(c.id), '🏁 Sent via email!')}
                           disabled={acting === c.id} className="btn-primary text-xs px-2 py-1.5">
                           <Send size={12} /> Send
                         </button>
-                        <button className="btn-ghost text-xs px-2 py-1.5">
+                        <button onClick={() => handleDownloadPdf(c)} className="btn-ghost text-xs px-2 py-1.5" title="Download PDF">
                           <Download size={12} /> PDF
                         </button>
                       </div>

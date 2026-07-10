@@ -75,16 +75,18 @@ export const candidateApi = {
           body: JSON.stringify({
             name: data.name || data.fullName || '',
             email: data.email || '',
+            phone: data.phone || '',
             college: data.college || '',
             role: data.role || '',
             cgpa: data.cgpa || '',
-            resume_link: data.resume || data.resumeLink || ''
+            resume_link: data.resume || data.resumeLink || '',
+            skills: data.skills || []
           })
         })
         if (res.ok) {
           const created = await res.json()
           // Mirror in-memory store
-          const newC = { id: String(created.id), name: data.name, email: data.email, status: 'applied', appliedDate: new Date().toISOString(), ...data }
+          const newC = { ...created, ...data, id: String(created.id) }
           candidates = [newC, ...candidates]
           return newC
         }
@@ -110,11 +112,14 @@ export const candidateApi = {
 
     // Status values for real backend (Google Sheet values)
     const SHEET_STATUS = {
+      applied:     '',
       shortlisted: 'Resume Shortlisted',
       rejected:    'Rejected',
       interview:   'Invited for Interview',
+      accepted:    'Interview Accepted',
       hired:       'Hired',
       offer:       'Offer Letter Generated',
+      ongoing:     'Internship Ongoing',
       completed:   'Internship Completed',
     }
 
@@ -149,6 +154,31 @@ export const candidateApi = {
   markOffer:      async (id) => candidateApi.updateStatus(id, 'offer'),
   markCompleted:  async (id) => candidateApi.updateStatus(id, 'completed'),
 
+  bulkShortlist: async ({ threshold, row_ids }) => {
+    const up = await isBackendUp()
+    if (up) {
+      const res = await fetch('/api/candidates/bulk-shortlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ threshold, row_ids })
+      })
+      if (res.ok) return await res.json()
+      const err = await res.json()
+      throw new Error(err.detail || 'Bulk shortlist failed')
+    }
+    await sleep(800)
+    let count = 0
+    if (row_ids) {
+      candidates = candidates.map(c => row_ids.includes(parseInt(c.id)) ? { ...c, status: 'shortlisted' } : c)
+      count = row_ids.length
+    } else if (threshold !== undefined) {
+      const targets = candidates.filter(c => c.status === 'applied' && c.resumeScore >= threshold)
+      candidates = candidates.map(c => (c.status === 'applied' && c.resumeScore >= threshold) ? { ...c, status: 'shortlisted' } : c)
+      count = targets.length
+    }
+    return { success: true, count }
+  },
+
   generateOffer: async (id) => {
     const up = await isBackendUp()
     const numericId = parseInt(id)
@@ -168,14 +198,14 @@ export const candidateApi = {
     if (up && !isNaN(numericId) && numericId > 1) {
       const res = await fetch(`/api/offers/send/${numericId}`, { method: 'POST' })
       if (res.ok) {
-        await candidateApi.updateStatus(id, 'Internship Ongoing')
+        await candidateApi.updateStatus(id, 'ongoing')
         return await res.json()
       }
       const err = await res.json()
       throw new Error(err.detail || 'Failed to send offer')
     }
     await sleep(1200)
-    await candidateApi.markOffer(id)
+    await candidateApi.updateStatus(id, 'ongoing')
     return { success: true, message: 'Offer letter sent via email (Mock)' }
   },
 
@@ -225,5 +255,41 @@ export const candidateApi = {
     }
     await sleep(1200)
     return { success: true, message: 'Interview invite sent via email' }
+  },
+
+  uploadOffer: async (id, file) => {
+    const up = await isBackendUp()
+    const numericId = parseInt(id)
+    if (up && !isNaN(numericId) && numericId > 1) {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch(`/api/candidates/${numericId}/upload-offer`, {
+        method: 'POST',
+        body: formData
+      })
+      if (res.ok) return await res.json()
+      const err = await res.json()
+      throw new Error(err.detail || 'Upload failed')
+    }
+    await sleep(800)
+    return { success: true, message: 'Uploaded offer letter (Mock)', pdfUrl: `/api/offers/${id}.pdf` }
+  },
+
+  uploadCertificate: async (id, file) => {
+    const up = await isBackendUp()
+    const numericId = parseInt(id)
+    if (up && !isNaN(numericId) && numericId > 1) {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch(`/api/candidates/${numericId}/upload-cert`, {
+        method: 'POST',
+        body: formData
+      })
+      if (res.ok) return await res.json()
+      const err = await res.json()
+      throw new Error(err.detail || 'Upload failed')
+    }
+    await sleep(800)
+    return { success: true, message: 'Uploaded certificate (Mock)', pdfUrl: `/api/certs/${id}.pdf` }
   },
 }

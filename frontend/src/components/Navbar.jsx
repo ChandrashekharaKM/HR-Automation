@@ -16,7 +16,7 @@ export default function Navbar({ title = 'Dashboard', subtitle = '' }) {
   const [showProfile, setShowProfile] = useState(false)
 
   return (
-    <header className="flex items-center justify-between px-6 py-4"
+    <header className="relative z-30 flex items-center justify-between px-6 py-4"
       style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', background: 'rgba(15,15,26,0.8)', backdropFilter: 'blur(12px)' }}>
 
       {/* Left: Page title */}
