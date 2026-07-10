@@ -154,3 +154,4 @@ output/offer_letters/*.pdf
 sent_history.json.bak
 scripts/client_secret.json
 scripts/token.json
+scripts/.env
