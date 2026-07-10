@@ -81,7 +81,62 @@ SwipeGen-Automation/
    └── offer_letters/                # Generated offer letters
 ```
 
+## 🏗️ Architecture
+
+This project follows a simple, modular architecture designed for flexibility and automation across frontend, backend, and cloud integrations.
+
+- **Frontend (UI)**: The user-facing app lives in [frontend/](frontend/) and is built with Vite + React (some TypeScript). It provides dashboards, candidate views, and calls the backend APIs or scripts for actions.
+- **Backend (Automation Scripts)**: Core automation lives in [scripts/](scripts/) as a set of Python CLI scripts that implement the workflow (shortlisting, invites, offer generation, certificate generation, email sending). Use `scripts/main_menu.py` to run the CLI.
+- **API Layer**: A minimal programmatic API entrypoint is available at [api.py](api.py) (FastAPI) to expose selected automation features for integration or for the frontend to consume.
+- **Data & Storage**: Google Sheets stores registration, interview responses, and offer details (configured via environment variables in [scripts/.env](scripts/.env)). Generated documents are stored in `output/` and optionally uploaded to Google Drive folders (Drive IDs configured in `.env`).
+- **Email & Templates**: SMTP is used for sending emails (credentials in [scripts/.env](scripts/.env)). Email and document templates are in [templates/](templates/) and are applied to generate offer letters and completion certificates.
+- **Flow Overview**: Registration → Shortlisting → Interview Invites → Update Status → Request Offer Details → Generate Offer Letters → Send Offers → Generate Certificates → Send Completion Emails → Reporting.
+
+This design separates concerns: lightweight frontend for UX, a collection of tested scripts for automation tasks, and an optional API for integrations.
+
 ## 🚀 Getting Started
+
+### Architecture Diagram
+
+```mermaid
+flowchart LR
+   subgraph UI[Frontend]
+      FE[Vite + React]
+   end
+
+   subgraph API[Programmatic API]
+      APINode[FastAPI - api.py]
+   end
+
+   subgraph Scripts[Automation]
+      CLI[Python scripts \n scripts/main_menu.py]
+      Utils[scripts/utils/*]
+   end
+
+   subgraph Google[Google Services]
+      Sheets[Google Sheets]
+      Drive[Google Drive]
+   end
+
+   SMTP[SMTP Mail Server]
+   Templates[DOCX & HTML templates]
+   Output[output/ (PDFs)]
+
+   FE -->|calls| APINode
+   APINode -->|reads/writes| Sheets
+   CLI -->|reads/writes| Sheets
+   CLI -->|uploads| Drive
+   CLI -->|generates| Output
+   Templates -->|used by| CLI
+   CLI -->|sends via| SMTP
+   APINode -->|invokes| CLI
+   Utils -->|helpers| CLI
+   FE -->|uploads/downloads| Drive
+
+   classDef external fill:#f9f,stroke:#333,stroke-width:1px;
+   class Sheets,Drive,SMTP external;
+```
+
 
 ### Prerequisites
 - Python 3.8+
@@ -165,22 +220,127 @@ The application presents a menu-driven interface with the following workflow opt
 0. **🚪 Exit** - Close the application
 
 ## ⚙️ Configuration
+This project supports both simple `config.json` configuration and environment-based configuration using a `.env` file for sensitive values.
 
-### config.json
+### config.json (optional)
 ```json
 {
-  "email": "your-email@gmail.com",
-  "smtp_server": "smtp.gmail.com",
-  "smtp_port": 587
+   "email": "your-email@gmail.com",
+   "smtp_server": "smtp.gmail.com",
+   "smtp_port": 587
 }
 ```
 
+### Environment variables (`.env`)
+The CLI scripts expect an environment file with Google Sheets URLs, Drive folder IDs and SMTP settings. A working example exists at `scripts/.env`.
+
+Key variables used by the scripts and API (from `scripts/.env`):
+
+- `SENDER_EMAIL` — SMTP login email used to send messages.
+- `SENDER_PASSWORD` — SMTP app password or credential (keep secret).
+- `SMTP_PORT` — SMTP port (usually `587`).
+- `WEBSITE_URL`, `INSTAGRAM_URL`, `LINKEDIN_URL`, `GOOGLE_SEARCH_URL` — optional links for templates.
+- `REGISTRATION_SHEET_URL` — Google Sheet URL used for registrations.
+- `INTERVIEW_RESPONSE_SHEET_URL` — Sheet for interview responses.
+- `OFFER_DETAILS_SHEET_URL` — Sheet collecting offer details.
+- `CERTIFICATES_DRIVE_FOLDER_ID` — Google Drive folder ID for certificates.
+- `OFFER_LETTERS_DRIVE_FOLDER_ID` — Google Drive folder ID for offer letters.
+- `COMPANY_NAME` — Company name to inject into templates.
+- `EMAIL_SIGNATURE` — Default signature for outgoing emails.
+- `OFFER_TEMPLATE_NAME`, `CERT_TEMPLATE_NAME` — template file names in `scripts/templates/`.
+
+Notes:
+- The provided FastAPI app (`api.py`) reads DOTENV from `backend/.env` by default (see `api.py`). The CLI scripts use `scripts/.env`. If you run the API, either create `backend/.env` (a copy of `scripts/.env`) or update `api.py` to point to `scripts/.env`.
+- Never commit secrets (`SENDER_PASSWORD`, service account JSON) to source control.
+
 ### Email Templates
-All email templates are located in the `templates/` directory and can be customized:
-- `interview_template.txt` - Interview invitation format
+All email templates are located in the `scripts/templates/` directory and can be customized:
+- `interview_email_template.html` - Interview invitation format
 - `offer_email_template.html` - Offer letter email format
-- `offer_details_template.txt` - Offer details request format
+- `offer_details_template.html` - Offer details request format
 - `completion_email_template.html` - Completion notification format
+- `offer_template.docx`, `Completion_Certificate.docx` - DOCX templates used for generating documents
+
+### Backend Scripts Overview
+The `scripts/` directory contains a set of Python utilities and CLI entry points. Important files:
+
+- `main_menu.py` — CLI menu to run common operations interactively.
+- `view_shortlist.py` — Inspect and shortlist candidates from the registration sheet.
+- `send_invites.py` — Send interview invite emails to shortlisted candidates.
+- `send_offer_letters.py` — Attach and send offer PDFs via email.
+- `generate_offers.py` — Create offer letters from templates (DOCX → PDF).
+- `generate_certificates.py` — Create completion certificates from templates.
+- `generate_summary.py` — Produce recruitment summary reports.
+- `update_hired.py` — Mark candidates as hired and update sheets.
+- `send_details_req.py` — Request missing details from candidates (documents, confirmations).
+- `send_completion.py` — Send completion certificates and final notifications.
+- `sent_history.json` — Tracks sent emails and documents for audit purposes.
+
+Utility modules are under `scripts/utils/` and include helpers for Google Sheets (`sheets_helper.py`), Drive operations (`drive_helper.py`), PDF/DOCX inspection and rendering, and QR utilities used in templates.
+
+### API Reference (FastAPI)
+The repository includes a small FastAPI application (`api.py`) that exposes the core operations for integration with the frontend or other services. Example endpoints:
+
+- `GET /health` — Basic service health.
+- `GET /info` — Project metadata.
+- `POST /trigger/{task}` — Lightweight task trigger (allowed tasks: `generate_offers`, `generate_certificates`).
+- `GET /api/health` — API health check.
+- `GET /api/candidates` — List candidates. Query params: `status`, `search`.
+- `GET /api/candidates/{row_id}` — Get candidate row details (by sheet row number).
+- `PUT /api/candidates/{row_id}/status` — Update candidate `Status` column. JSON body: `{"status":"shortlisted"}`.
+- `POST /api/candidates` — Append a new candidate. Payload keys: `name`, `email`, `college`, `role`, `cgpa`, `resume_link`.
+- `GET /api/settings` — Read current `.env` configuration values used by the API.
+- `POST /api/settings` — Update allowed settings in the `.env` file (writes to the DOTENV path used by the API).
+- `POST /api/settings/test-sheet` — Verify a Google Sheet URL and return headers.
+
+Example: list all shortlisted candidates
+
+```bash
+curl 'http://localhost:8000/api/candidates?status=shortlisted'
+```
+
+Running the API (development):
+
+```bash
+pip install -r requirements.txt
+uvicorn api:app --host 0.0.0.0 --port 8000 --reload
+```
+
+Security note: `api.py` uses a service account JSON file referenced by `backend/service_account.json`. Ensure this file exists and is protected. The API intentionally does not execute arbitrary shell commands — extend it by mapping allowed task names to internal function calls.
+
+### Frontend
+The frontend is a Vite + React application in the `frontend/` folder. Key points:
+
+- Install and run locally:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+- The frontend calls the API endpoints described above (see `frontend/src/services` for fetch wrappers).
+
+### Running the CLI (scripts)
+Use the interactive menu:
+
+```bash
+cd scripts
+python main_menu.py
+```
+
+Or run specific scripts directly, e.g.:
+
+```bash
+python generate_offers.py
+python send_offer_letters.py
+```
+
+### Troubleshooting
+- If API cannot read `.env` values, ensure `backend/.env` exists (or update `api.py` to use `scripts/.env`).
+- If Google Sheets access fails, verify the service account JSON path and that the service account has access to the sheet.
+- For SMTP issues, confirm `SENDER_EMAIL` and `SENDER_PASSWORD` are correct and that less-secure access or app passwords are configured.
+
 
 ## 📊 Data Management
 
